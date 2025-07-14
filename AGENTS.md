@@ -92,6 +92,37 @@ comm_config.lyrics = {"こんにちは", "元気です", "よろしく"};
 - Improves Avatar stability
 - Faster boot time
 
+**Trade-off**: Complete StackchanSystemConfig removal may disable Avatar display functionality.
+
+### **BALANCED: Avatar Display Recovery** ⭐
+
+**Problem**: Removing StackchanSystemConfig eliminates Avatar visual display entirely
+
+**Balanced Solution**:
+
+```cpp
+// Avatar initialization with minimal tasks for stability
+avatar.init();
+avatar.setColorPalette(*cps[0]);
+avatar.setSpeechFont(&fonts::efontJA_16);
+avatar.setExpression(Expression::Neutral);
+
+// Add only essential task for display
+avatar.addTask(face, "face");      // Required for visual display
+// avatar.addTask(lipSync, "lipSync");  // Skip for stability
+
+// Reduce animation frequency
+static unsigned long last_animation = 0;
+if (avatar_initialized && (millis() - last_animation) > 10000) {
+  avatar.setMouthOpenRatio(0.2);  // Minimal movement
+  delay(100);
+  avatar.setMouthOpenRatio(0.0);
+  last_animation = millis();
+}
+```
+
+**Result**: Maintains Avatar visual display while preserving system stability
+
 ### Current Implementation
 
 - **Font Library**: M5GFX internal fonts
@@ -162,4 +193,4 @@ comm_config.lyrics = {"こんにちは", "元気です", "よろしく"};
 
 ## Last Updated
 
-2025年7月15日 - Added Codex-suggested StackchanSystemConfig dependency removal and font size optimization
+2025年7月15日 - Added balanced Avatar display recovery solution while maintaining stability

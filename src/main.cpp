@@ -669,16 +669,20 @@ void loop() {
       cps[0]->set(COLOR_PRIMARY, TFT_WHITE);
       cps[0]->set(COLOR_BACKGROUND, TFT_BLACK);
       
-      // Avatar初期化（タスク追加なし）
+      // Avatar初期化（最小限のタスクで安全に）
       avatar.init();
       avatar.setColorPalette(*cps[0]);
       avatar.setSpeechFont(&fonts::efontJA_16);  // 日本語フォント設定
       avatar.setExpression(Expression::Neutral);
       
+      // 重要：基本的なタスクは追加（表示のため）
+      avatar.addTask(face, "face");      // 顔表示に必要
+      // avatar.addTask(lipSync, "lipSync");  // 口同期はスキップして安定性優先
+      
       avatar_initialized = true;
       M5.Display.setCursor(10, 190);
-      M5.Display.print("Avatar OK!");
-      Serial.println("DEBUG: Avatar initialized successfully (no tasks)");
+      M5.Display.print("Avatar OK (basic)!");
+      Serial.println("DEBUG: Avatar initialized successfully (basic tasks)");
     } catch (...) {
       avatar_initialized = false;  // 再試行しない
       M5.Display.setCursor(10, 190);
@@ -814,12 +818,14 @@ void loop() {
       M5.Display.print(message);
     }
     
-    // 口の動き（Avatar状態適応版）
-    if (avatar_initialized) {
+    // 口の動き（Avatar状態適応版、非常に控えめ）
+    static unsigned long last_mouth_animation = 0;
+    if (avatar_initialized && (millis() - last_mouth_animation) > 10000) {  // 10秒間隔に延長
       try {
-        avatar.setMouthOpenRatio(0.5);
+        avatar.setMouthOpenRatio(0.2);  // 非常に小さな開口
         delay(100);
         avatar.setMouthOpenRatio(0.0);
+        last_mouth_animation = millis();
         Serial.println("DEBUG: Avatar mouth animation successful");
       } catch (...) {
         Serial.println("DEBUG: Avatar mouth animation failed");
