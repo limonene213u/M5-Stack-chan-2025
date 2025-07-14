@@ -818,12 +818,12 @@ void loop() {
       M5.Display.print(message);
     }
     
-    // 口の動き（Avatar状態適応版、非常に控えめ）
+    // 口の動き（Avatar状態適応版、頻度削減）
     static unsigned long last_mouth_animation = 0;
-    if (avatar_initialized && (millis() - last_mouth_animation) > 10000) {  // 10秒間隔に延長
+    if (avatar_initialized && (millis() - last_mouth_animation) > 5000) {  // 5秒間隔に変更
       try {
-        avatar.setMouthOpenRatio(0.2);  // 非常に小さな開口
-        delay(100);
+        avatar.setMouthOpenRatio(0.3);  // より小さな開口
+        delay(50);  // 短時間
         avatar.setMouthOpenRatio(0.0);
         last_mouth_animation = millis();
         Serial.println("DEBUG: Avatar mouth animation successful");
