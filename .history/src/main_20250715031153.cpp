@@ -16,7 +16,7 @@
 #include <M5Unified.h>
 #include <Avatar.h>
 #include <SD.h>
-// #include <Stackchan_system_config.h>  // Codex提案：依存削除
+#include <Stackchan_system_config.h>
 #include "formatString.hpp"
 #include "communication_config.h"
 #include "wifi_manager.h"
