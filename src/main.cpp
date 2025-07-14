@@ -607,30 +607,30 @@ void setup() {
   delay(1000);
   
   // WiFi設定
-  M5.Display.setCursor(10, 190);
-  M5.Display.print("Step 9: WiFi setup...");
+  M5.Display.setCursor(10, 90);
+  M5.Display.print("Step 15: WiFi setup...");
   setupWiFi();
-  M5.Display.setCursor(10, 210);
-  M5.Display.print("Step 10: WiFi done");
+  M5.Display.setCursor(10, 110);
+  M5.Display.print("Step 16: WiFi done");
   delay(1000);
   
   // WebServer設定
-  M5.Display.setCursor(10, 230);
-  M5.Display.print("Step 11: WebServer...");
+  M5.Display.setCursor(10, 130);
+  M5.Display.print("Step 17: WebServer...");
   setupWebServer();
-  M5.Display.print(" OK");
+  M5.Display.setCursor(10, 150);
+  M5.Display.print("Step 18: WebServer OK");
   
   // Bluetooth設定
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setCursor(10, 10);
-  M5.Display.print("Step 12: Bluetooth...");
+  M5.Display.setCursor(10, 170);
+  M5.Display.print("Step 19: Bluetooth...");
   setupBluetooth();
-  M5.Display.setCursor(10, 30);
-  M5.Display.print("Step 13: BT done");
+  M5.Display.setCursor(10, 190);
+  M5.Display.print("Step 20: BT done");
   
   current_message = "準備完了です！";
   avatar.setSpeechText(current_message.c_str());
-  M5.Display.setCursor(10, 50);
+  M5.Display.setCursor(10, 210);
   M5.Display.print("All systems ready!");
   
   last_display_update = millis();
