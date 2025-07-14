@@ -28,12 +28,6 @@
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 
 // ------------------------
-// 通信エディション設定（参考実装より）
-// メモリ事前確保サイズ（音声処理用バッファ）
-static constexpr size_t preallocateBufferSize = 8000;  // 通信エディション用に縮小
-static uint8_t* preallocateBuffer = nullptr;
-
-// ------------------------
 // グローバル変数定義
 using namespace m5avatar;
 Avatar avatar;
@@ -70,11 +64,6 @@ enum CommunicationMode {
   BOTH_MODE
 };
 CommunicationMode current_mode = BOTH_MODE;
-
-// ------------------------
-// 関数宣言
-void loadSimpleWiFiConfig();  // 参考実装パターン：wifi.txt読み込み
-void loadSimpleAPIConfig();   // 参考実装パターン：apikey.txt読み込み
 
 // ------------------------
 // WiFi WebServer API ハンドラー
@@ -566,124 +555,181 @@ void setupBluetooth() {
 }
 
 void setup() {
-  // 元stack-chan-tester準拠の初期化順序
   auto cfg = M5.config();
   cfg.serial_baudrate = 115200;
   M5.begin(cfg);
   M5.setTouchButtonHeight(40);
   M5.Log.setLogLevel(m5::log_target_display, ESP_LOG_NONE);
   M5.Log.setLogLevel(m5::log_target_serial, ESP_LOG_INFO);
-  M5.Log.setEnableColor(m5::log_target_serial, false);
-  
-  // 通信エディション向けメモリ事前確保（参考実装より）
-  preallocateBuffer = (uint8_t *)malloc(preallocateBufferSize);
-  if (!preallocateBuffer) {
-    M5.Display.printf("Memory allocation failed: %d bytes\n", preallocateBufferSize);
-    Serial.printf("ERROR: Unable to preallocate %d bytes for communication buffer\n", preallocateBufferSize);
-    // 継続（通信エディションでは致命的でない）
-  } else {
-    Serial.printf("SUCCESS: Preallocated %d bytes for communication buffer\n", preallocateBufferSize);
-  }
-  
+  M5.Log.setLogLevel(m5::log_target_display, ESP_LOG_NONE);
   M5_LOGI("Stack-chan Communication Edition Started");
+  
   Serial.println("DEBUG: M5 initialized successfully");
   delay(100);
   
-  // SDカード初期化（元実装準拠）
+  // SDカード初期化
   Serial.println("DEBUG: Before SD initialization");
+  M5.Display.setCursor(10, 110);
+  M5.Display.print("Step 5: SD init...");
   bool sd_and_config_ok = false;
   
   if (SD.begin(GPIO_NUM_4, SPI, 25000000)) {
-    delay(2000);  // 元実装準拠：SDカード安定化待機
+    M5.Display.setCursor(10, 130);
+    M5.Display.print("Step 6: SD OK");
     
-    // StackchanSystemConfig読み込み（元実装準拠）
+    // StackchanSystemConfig復活（段階的安全初期化）
+    M5.Display.setCursor(10, 150);
+    M5.Display.print("Step 7: Config load...");
     try {
-      system_config.loadConfig(SD, "");  // 元実装と同じ呼び出し
+      // Avatar初期化前に設定ファイル読み込み完了
+      system_config.loadConfig(SD, "/yaml/SC_BasicConfig.yaml");
+      
+      // system_configから通信設定を読み込み
       comm_config.loadFromSystemConfig(system_config);
+      
+      M5.Display.setCursor(10, 170);
+      M5.Display.print("Step 8: Config OK");
       Serial.println("DEBUG: StackchanSystemConfig loaded successfully");
-      
-      // 参考実装パターン：シンプル設定ファイルも読み込み（追加設定）
-      loadSimpleWiFiConfig();  // wifi.txt があれば追加
-      loadSimpleAPIConfig();   // apikey.txt があれば将来用に保存
-      
       sd_and_config_ok = true;
     } catch (...) {
       Serial.println("DEBUG: StackchanSystemConfig failed - using defaults");
+      M5.Display.setCursor(10, 170);
+      M5.Display.print("Step 8: Config FALLBACK");
     }
   } else {
-    Serial.println("DEBUG: SD card not available - using defaults");
+    M5.Display.setCursor(10, 130);
+    M5.Display.print("Step 6: SD SKIP");
   }
+  delay(500);
   
-  // デフォルト設定（SD未使用時）
+  // 設定ファイル読み込み失敗またはSD未使用時のフォールバック
   if (!sd_and_config_ok) {
+    M5.Display.setCursor(10, 150);
+    M5.Display.print("Step 7: Default config...");
+    Serial.println("DEBUG: Setting up default configuration");
+    
+    // デフォルト通信設定（フォールバック）
     comm_config.webserver_port = 80;
     comm_config.bluetooth_device_name = "M5Stack-StackChan";
     comm_config.bluetooth_starting_state = true;
+    
+    // 日本語メッセージのデフォルト設定
     comm_config.lyrics.clear();
     comm_config.lyrics.push_back("こんにちは");
     comm_config.lyrics.push_back("元気です");
     comm_config.lyrics.push_back("よろしく");
+    comm_config.lyrics.push_back("がんばります");
+    
     Serial.println("DEBUG: Default config applied successfully");
+    M5.Display.setCursor(10, 170);
+    M5.Display.print("Step 8: Default OK");
   }
+  M5.Display.setCursor(10, 170);
+  M5.Display.print("Step 8: Config OK (simple)");
   
-  // I2C管理（元実装準拠）
-  bool core_port_a = false;
-  if (M5.getBoard() == m5::board_t::board_M5Stack) {
-    // Core1での特別処理（元実装準拠）
-    Serial.println("DEBUG: Core1 detected - I2C management");
-    // Note: サーボなしの通信版ではI2C解放は不要だが、将来のサーボ対応のため記録
-  }
-  
-  // WebServer初期化
+  // Webサーバーポート設定
+  M5.Display.setCursor(10, 190);
+  M5.Display.print("Step 9: WebServer obj...");
   Serial.println("DEBUG: Before WebServer creation");
   server = new WebServer(comm_config.webserver_port);
   Serial.println("DEBUG: After WebServer creation");
+  M5.Display.setCursor(10, 210);
+  M5.Display.print("Step 10: WebServer OK");
   
-  // WiFi設定
-  Serial.println("DEBUG: Setting up WiFi");
+  // Avatar機能を遅延初期化（setup完了後にloop内で実行）
+  Serial.println("DEBUG: Avatar initialization will be done in loop()");
+  M5.Display.fillScreen(TFT_BLACK);
+  M5.Display.setTextSize(1);
+  M5.Display.setTextColor(TFT_WHITE);
+  M5.Display.setCursor(10, 10);
+  M5.Display.print("Stack-chan Communication");
+  M5.Display.setCursor(10, 30);
+  M5.Display.print("Avatar init: Later");
+  
+  // WiFi設定を先に完了
+  Serial.println("DEBUG: Setting up WiFi first");
+  M5.Display.setCursor(10, 50);
+  M5.Display.print("WiFi setup...");
   setupWiFi();
+  M5.Display.setCursor(10, 70);
+  M5.Display.print("WiFi OK");
   
   // WebServer設定
+  Serial.println("DEBUG: Setting up WebServer");
+  M5.Display.setCursor(10, 90);
+  M5.Display.print("WebServer...");
   setupWebServer();
+  M5.Display.setCursor(10, 110);
+  M5.Display.print("WebServer OK");
   
-  // Avatar初期化（元実装準拠：setup()内で完了）
-  Serial.println("DEBUG: Avatar initialization (stack-chan-tester style)");
+  // 完了表示
+  M5.Display.setCursor(10, 130);
+  M5.Display.print("Basic systems ready!");
+  M5.Display.setCursor(10, 150);
+  M5.Display.print("Avatar init in progress...");
+  Serial.println("DEBUG: Basic systems ready!");
   
-  // 元実装準拠のAvatar初期化
-  avatar.init();
-  cps[0] = new ColorPalette();
-  cps[0]->set(COLOR_PRIMARY, TFT_BLACK);
-  cps[0]->set(COLOR_BACKGROUND, TFT_WHITE);
-  avatar.setColorPalette(*cps[0]);
-  avatar.setSpeechFont(&fonts::efontJA_16);  // 日本語フォント設定
-  
-  // 通信エディション特化：lipSyncのみ追加（servo除外）
-  try {
-    // 参考実装パターン：lipSyncタスクのみ適用
-    // avatar.addTask(lipSync, "lipSync");  // 将来の音声連動用
-    Serial.println("DEBUG: Avatar basic initialization completed (servo-free)");
-  } catch (...) {
-    Serial.println("DEBUG: Avatar task addition skipped for stability");
-  }
-  
-  avatar_initialized = true;  // 初期化完了フラグ
   last_display_update = millis();
   M5_LOGI("Setup completed");
 }
 
 void loop() {
-  // 🚨 FreeRTOSキュー競合回避：Avatar操作を最小限に制限
-  static uint32_t last_mouth_millis = 0;
-  static int lyrics_idx = 0;
-  static uint32_t mouth_wait = 10000;  // 10秒間隔に延長（安定性優先）
-  static bool avatar_safe_mode = true;  // 安全モード有効
+  static unsigned long loop_counter = 0;
+  static unsigned long last_debug_print = 0;
+  static unsigned long avatar_init_start = 0;
   
-  M5.update();  // 元実装準拠
+  // 一度だけAvatar初期化を試行（setup完了から5秒後）
+  if (!avatar_initialized && avatar_init_start == 0) {
+    avatar_init_start = millis();
+    Serial.println("DEBUG: Starting Avatar initialization timer");
+  }
   
-  // Webサーバー処理（追加機能）
+  if (!avatar_initialized && avatar_init_start > 0 && (millis() - avatar_init_start) > 5000) {
+    Serial.println("DEBUG: Attempting Avatar initialization in loop");
+    M5.Display.setCursor(10, 170);
+    M5.Display.print("Avatar initializing...");
+    
+    try {
+      // カラーパレット作成
+      cps[0] = new ColorPalette();
+      cps[0]->set(COLOR_PRIMARY, TFT_WHITE);
+      cps[0]->set(COLOR_BACKGROUND, TFT_BLACK);
+      
+      // Avatar初期化（段階的・安全アプローチ）
+      avatar.init();
+      avatar.setColorPalette(*cps[0]);
+      avatar.setSpeechFont(&fonts::efontJA_16);  // 日本語フォント設定
+      avatar.setExpression(Expression::Neutral);
+      
+      // タスク追加は安全性を優先してスキップ
+      // avatar.addTask(face, "face");      // 外部関数依存でエラー
+      // avatar.addTask(lipSync, "lipSync");  // 口同期はスキップして安定性優先
+      
+      avatar_initialized = true;
+      M5.Display.setCursor(10, 190);
+      M5.Display.print("Avatar OK (safe)!");
+      Serial.println("DEBUG: Avatar initialized successfully (safe mode)");
+    } catch (...) {
+      avatar_initialized = false;  // 再試行しない
+      M5.Display.setCursor(10, 190);
+      M5.Display.print("Avatar SKIP");
+      Serial.println("DEBUG: Avatar failed in loop - continuing without");
+    }
+  }
+  
+  // デバッグ用：5秒ごとにループカウンターを表示
+  if (millis() - last_debug_print > 5000) {
+    Serial.printf("Loop counter: %lu, Free heap: %u\n", loop_counter, ESP.getFreeHeap());
+    last_debug_print = millis();
+  }
+  loop_counter++;
+  
+  M5.update();
+  
+  // Webサーバー処理
   server->handleClient();
   
-  // Bluetooth通信処理（追加機能）
+  // Bluetooth通信処理
   handleBluetoothData();
   
   // ボタン処理（Avatar状態適応版）
@@ -817,46 +863,3 @@ void loop() {
   
   delay(50); // CPU負荷軽減
 }
-
-// ------------------------
-// 将来拡張：シンプル設定ファイル読み込み（参考実装パターン）
-void loadSimpleWiFiConfig() {
-  // 参考実装スタイル：wifi.txt読み込み（将来対応）
-  auto fs = SD.open("/wifi.txt", FILE_READ);
-  if(fs) {
-    size_t sz = fs.size();
-    char buf[sz + 1];
-    fs.read((uint8_t*)buf, sz);
-    buf[sz] = 0;
-    fs.close();
-
-    int y = 0;
-    for(int x = 0; x < sz; x++) {
-      if(buf[x] == 0x0a || buf[x] == 0x0d)
-        buf[x] = 0;
-      else if (!y && x > 0 && !buf[x - 1] && buf[x])
-        y = x;
-    }
-    
-    // 追加設定として保存（既存StackchanSystemConfigと併用）
-    comm_config.addWiFiNetwork(String(buf), String(&buf[y]), 10);  // 最高優先度
-    Serial.printf("Simple WiFi config loaded: %s\n", buf);
-  }
-}
-
-void loadSimpleAPIConfig() {
-  // 参考実装スタイル：apikey.txt読み込み（将来のChatGPT対応準備）
-  auto fs = SD.open("/apikey.txt", FILE_READ);
-  if(fs) {
-    size_t sz = fs.size();
-    char buf[sz + 1];
-    fs.read((uint8_t*)buf, sz);
-    buf[sz] = 0;
-    fs.close();
-    
-    // 将来のAPI設定保存準備（現在は未使用）
-    Serial.println("Simple API config found (future use)");
-  }
-}
-
-// ------------------------

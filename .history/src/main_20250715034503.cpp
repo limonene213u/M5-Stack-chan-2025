@@ -72,11 +72,6 @@ enum CommunicationMode {
 CommunicationMode current_mode = BOTH_MODE;
 
 // ------------------------
-// 関数宣言
-void loadSimpleWiFiConfig();  // 参考実装パターン：wifi.txt読み込み
-void loadSimpleAPIConfig();   // 参考実装パターン：apikey.txt読み込み
-
-// ------------------------
 // WiFi WebServer API ハンドラー
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head>";
@@ -601,11 +596,6 @@ void setup() {
       system_config.loadConfig(SD, "");  // 元実装と同じ呼び出し
       comm_config.loadFromSystemConfig(system_config);
       Serial.println("DEBUG: StackchanSystemConfig loaded successfully");
-      
-      // 参考実装パターン：シンプル設定ファイルも読み込み（追加設定）
-      loadSimpleWiFiConfig();  // wifi.txt があれば追加
-      loadSimpleAPIConfig();   // apikey.txt があれば将来用に保存
-      
       sd_and_config_ok = true;
     } catch (...) {
       Serial.println("DEBUG: StackchanSystemConfig failed - using defaults");
@@ -672,11 +662,10 @@ void setup() {
 }
 
 void loop() {
-  // 🚨 FreeRTOSキュー競合回避：Avatar操作を最小限に制限
+  // 元stack-chan-tester準拠のシンプルなloop構造
   static uint32_t last_mouth_millis = 0;
   static int lyrics_idx = 0;
-  static uint32_t mouth_wait = 10000;  // 10秒間隔に延長（安定性優先）
-  static bool avatar_safe_mode = true;  // 安全モード有効
+  static uint32_t mouth_wait = 2000;  // 元実装準拠
   
   M5.update();  // 元実装準拠
   

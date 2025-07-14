@@ -672,11 +672,10 @@ void setup() {
 }
 
 void loop() {
-  // 🚨 FreeRTOSキュー競合回避：Avatar操作を最小限に制限
+  // 元stack-chan-tester準拠のシンプルなloop構造
   static uint32_t last_mouth_millis = 0;
   static int lyrics_idx = 0;
-  static uint32_t mouth_wait = 10000;  // 10秒間隔に延長（安定性優先）
-  static bool avatar_safe_mode = true;  // 安全モード有効
+  static uint32_t mouth_wait = 2000;  // 元実装準拠
   
   M5.update();  // 元実装準拠
   
