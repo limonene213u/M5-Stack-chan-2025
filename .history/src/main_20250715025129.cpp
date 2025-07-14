@@ -48,9 +48,6 @@ StackchanSystemConfig system_config;
 uint32_t display_update_interval = 2000;
 uint32_t last_display_update = 0;
 String current_message = "待機中...";
-
-// Avatar初期化状態
-bool avatar_initialized = false;
 String last_received_data = "";
 bool bluetooth_connected = false;
 
@@ -189,10 +186,10 @@ void handleMessage() {
   // 日本語対応表示（M5GFXの内蔵フォント使用）
   M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
   
-  // 日本語フォント試行（正しいAPI使用、小さめサイズ）
+  // 日本語フォント試行
   try {
-    M5.Lcd.setTextFont(&fonts::efontJA_16);  // 日本語フォント（正しいAPI）
-    M5.Display.setTextSize(0.5);  // サイズを半分に
+    M5.Display.setFont(&fonts::efontJA_16);  // 日本語フォント
+    M5.Display.setTextSize(1);
     M5.Display.setTextColor(TFT_GREEN);
     M5.Display.setCursor(5, M5.Display.height() - 38);
     M5.Display.print("WiFi受信:");
@@ -234,24 +231,20 @@ void handleExpression() {
   
   String expression = doc["expression"];
   
-  // Avatar表情変更（初期化済みの場合のみ）
-  if (avatar_initialized) {
-    try {
-      if (expression == "happy") {
-        avatar.setExpression(Expression::Happy);
-      } else if (expression == "sleepy") {
-        avatar.setExpression(Expression::Sleepy);
-      } else if (expression == "doubt") {
-        avatar.setExpression(Expression::Doubt);
-      } else {
-        avatar.setExpression(Expression::Neutral);
-      }
-      Serial.printf("DEBUG: Avatar expression changed to: %s\n", expression.c_str());
-    } catch (...) {
-      Serial.printf("DEBUG: Avatar expression change failed for: %s\n", expression.c_str());
+  // Avatar表情変更（安全版）
+  try {
+    if (expression == "happy") {
+      avatar.setExpression(Expression::Happy);
+    } else if (expression == "sleepy") {
+      avatar.setExpression(Expression::Sleepy);
+    } else if (expression == "doubt") {
+      avatar.setExpression(Expression::Doubt);
+    } else {
+      avatar.setExpression(Expression::Neutral);
     }
-  } else {
-    Serial.printf("DEBUG: Avatar not initialized, expression change skipped: %s\n", expression.c_str());
+    Serial.printf("DEBUG: Avatar expression changed to: %s\n", expression.c_str());
+  } catch (...) {
+    Serial.printf("DEBUG: Avatar expression change failed for: %s\n", expression.c_str());
   }
   
   M5_LOGI("Expression changed to: %s", expression.c_str());
@@ -418,9 +411,9 @@ void handleBluetoothData() {
             current_message = doc["message"].as<String>();
             avatar.setSpeechText(current_message.c_str());
             
-            // 内蔵日本語フォントで画面表示（正しいAPI使用）
+            // 内蔵日本語フォントで画面表示
             M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
-            M5.Lcd.setTextFont(&fonts::efontJA_16);
+            M5.Display.setFont(&fonts::efontJA_16);
             M5.Display.setTextSize(1);
             M5.Display.setTextColor(TFT_BLUE);
             M5.Display.setCursor(5, M5.Display.height() - 38);
@@ -643,6 +636,9 @@ void setup() {
   M5_LOGI("Setup completed");
 }
 
+// Avatar初期化フラグ
+static bool avatar_initialized = false;
+
 void loop() {
   static unsigned long loop_counter = 0;
   static unsigned long last_debug_print = 0;
@@ -665,16 +661,15 @@ void loop() {
       cps[0]->set(COLOR_PRIMARY, TFT_WHITE);
       cps[0]->set(COLOR_BACKGROUND, TFT_BLACK);
       
-      // Avatar初期化（タスク追加なし）
+      // Avatar初期化
       avatar.init();
       avatar.setColorPalette(*cps[0]);
-      avatar.setSpeechFont(&fonts::efontJA_16);  // 日本語フォント設定
       avatar.setExpression(Expression::Neutral);
       
       avatar_initialized = true;
       M5.Display.setCursor(10, 190);
       M5.Display.print("Avatar OK!");
-      Serial.println("DEBUG: Avatar initialized successfully (no tasks)");
+      Serial.println("DEBUG: Avatar initialized successfully in loop");
     } catch (...) {
       avatar_initialized = false;  // 再試行しない
       M5.Display.setCursor(10, 190);

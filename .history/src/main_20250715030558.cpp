@@ -189,10 +189,10 @@ void handleMessage() {
   // 日本語対応表示（M5GFXの内蔵フォント使用）
   M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
   
-  // 日本語フォント試行（正しいAPI使用、小さめサイズ）
+  // 日本語フォント試行（正しいAPI使用）
   try {
     M5.Lcd.setTextFont(&fonts::efontJA_16);  // 日本語フォント（正しいAPI）
-    M5.Display.setTextSize(0.5);  // サイズを半分に
+    M5.Display.setTextSize(1);
     M5.Display.setTextColor(TFT_GREEN);
     M5.Display.setCursor(5, M5.Display.height() - 38);
     M5.Display.print("WiFi受信:");
