@@ -16,7 +16,6 @@
 #include <M5Unified.h>
 #include <Avatar.h>
 #include <SD.h>
-#include <Stackchan_system_config.h>
 #include "formatString.hpp"
 #include "communication_config.h"
 #include "wifi_manager.h"
@@ -41,8 +40,6 @@ WebServer* server = nullptr;
 // Bluetooth
 BluetoothSerial SerialBT;
 
-// システム設定
-StackchanSystemConfig system_config;
 
 // 表示制御
 uint32_t display_update_interval = 2000;
@@ -540,18 +537,16 @@ void setup() {
   
   // 設定ファイル読み込み
   M5.Display.setCursor(10, 150);
-  M5.Display.print("Step 7: Config load...");
-  system_config.loadConfig(SD, "");
-  comm_config.loadFromSystemConfig(system_config);
+  M5.Display.print("Step 7: Config SKIP");
+  // StackchanSystemConfig is disabled in this simplified build
+  // Configuration uses default CommunicationConfig values
   M5.Display.setCursor(10, 170);
-  M5.Display.print("Step 8: Config OK");
+  M5.Display.print("Step 8: WebServer obj...");
   
   // Webサーバーポート設定
-  M5.Display.setCursor(10, 190);
-  M5.Display.print("Step 9: WebServer obj...");
   server = new WebServer(comm_config.webserver_port);
-  M5.Display.setCursor(10, 210);
-  M5.Display.print("Step 10: WebServer OK");
+  M5.Display.setCursor(10, 190);
+  M5.Display.print("Step 9: WebServer OK");
   
   // Avatar初期化
   avatar.init();
