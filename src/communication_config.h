@@ -10,7 +10,6 @@
 #include <vector>
 #include <algorithm>
 #include <WiFi.h>
-#include <Stackchan_system_config.h>
 
 #define MAX_WIFI_NETWORKS 10
 
@@ -167,17 +166,6 @@ struct CommunicationConfig {
     return valid;
   }
   
-  void loadFromSystemConfig(StackchanSystemConfig& system_config) {
-    // stackchan-arduinoライブラリからの設定読み込み
-    // 実際の実装では、system_configのAPIに合わせて調整が必要
-    
-    // 基本設定から言語設定を読み込み
-    // language = system_config.getBalloonConfig().font_language;
-    
-    // デフォルト設定でサンプルネットワークを追加
-    addWiFiNetwork("Home-WiFi", "password123", 1);
-    addWiFiNetwork("Office-WiFi", "office456", 2);
-  }
 };
 
 #endif
