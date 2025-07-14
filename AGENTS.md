@@ -60,6 +60,37 @@ void setup() {
 - ❌ **WRONG**: `M5.Display.setFont(&fonts::efontJA_16)` (causes squares)
 - Available fonts: `fonts::efontJA_16`, `fonts::efontJA_24`
 - Fallback: `fonts::Font0` for English text
+- **Font Size**: Use `M5.Display.setTextSize(0.5)` for smaller text
+
+### **CRITICAL: StackchanSystemConfig Dependency Issue** ⭐
+
+**Problem**: FreeRTOS `xQueueGenericSend assertion failed` crashes during Avatar operations
+
+**Root Cause**: Complex StackchanSystemConfig dependency chain causing task conflicts:
+
+- SD card file reading
+- YAML parsing
+- File system access competing with Avatar FreeRTOS tasks
+
+**Solution** (Codex-suggested):
+
+```cpp
+// Remove StackchanSystemConfig dependency
+// #include <Stackchan_system_config.h>  // Remove this
+
+// Use simple default configuration instead
+comm_config.webserver_port = 80;
+comm_config.bluetooth_device_name = "M5Stack-StackChan";
+comm_config.bluetooth_starting_state = true;
+comm_config.lyrics = {"こんにちは", "元気です", "よろしく"};
+```
+
+**Benefits**:
+
+- Eliminates SD card dependency conflicts
+- Reduces memory usage and complexity
+- Improves Avatar stability
+- Faster boot time
 
 ### Current Implementation
 
@@ -131,4 +162,4 @@ void setup() {
 
 ## Last Updated
 
-2025年7月15日 - Added critical Japanese font solution using M5.Lcd.setTextFont()
+2025年7月15日 - Added Codex-suggested StackchanSystemConfig dependency removal and font size optimization

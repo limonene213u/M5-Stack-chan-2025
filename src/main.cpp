@@ -41,8 +41,8 @@ WebServer* server = nullptr;
 // Bluetooth
 BluetoothSerial SerialBT;
 
-// システム設定
-StackchanSystemConfig system_config;
+// システム設定（Codex提案：StackchanSystemConfig削除）
+// StackchanSystemConfig system_config;  // 削除
 
 // 表示制御
 uint32_t display_update_interval = 2000;
@@ -580,22 +580,26 @@ void setup() {
   }
   delay(500);
   
-  // 設定ファイル読み込み（安全な方法に変更）
+  // 設定ファイル読み込み（Codex提案：デフォルト設定のみ使用）
   M5.Display.setCursor(10, 150);
-  M5.Display.print("Step 7: Config load...");
-  Serial.println("DEBUG: Before system_config.loadConfig");
+  M5.Display.print("Step 7: Config setup...");
+  Serial.println("DEBUG: Setting up default configuration");
   
-  // SDカードからの設定読み込みをスキップして、デフォルトで開始
-  Serial.println("DEBUG: Using default config to avoid crash");
-  
-  // 基本的な通信設定のみ設定（正しいフィールドを使用）
+  // デフォルト通信設定（YAML依存を排除）
   comm_config.webserver_port = 80;
   comm_config.bluetooth_device_name = "M5Stack-StackChan";
   comm_config.bluetooth_starting_state = true;
   
-  Serial.println("DEBUG: After default config setup");
+  // 日本語メッセージのデフォルト設定
+  comm_config.lyrics.clear();
+  comm_config.lyrics.push_back("こんにちは");
+  comm_config.lyrics.push_back("元気です");
+  comm_config.lyrics.push_back("よろしく");
+  comm_config.lyrics.push_back("がんばります");
+  
+  Serial.println("DEBUG: Default config applied successfully");
   M5.Display.setCursor(10, 170);
-  M5.Display.print("Step 8: Config OK (default)");
+  M5.Display.print("Step 8: Config OK (simple)");
   
   // Webサーバーポート設定
   M5.Display.setCursor(10, 190);
