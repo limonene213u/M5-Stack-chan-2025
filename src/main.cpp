@@ -16,7 +16,7 @@
 #include <M5Unified.h>
 #include <Avatar.h>
 #include <SD.h>
-#include <Stackchan_system_config.h>
+// #include <Stackchan_system_config.h>  // Codex提案：依存削除
 #include "formatString.hpp"
 #include "communication_config.h"
 #include "wifi_manager.h"
@@ -418,10 +418,10 @@ void handleBluetoothData() {
             current_message = doc["message"].as<String>();
             avatar.setSpeechText(current_message.c_str());
             
-            // 内蔵日本語フォントで画面表示（正しいAPI使用）
+            // 内蔵日本語フォントで画面表示（正しいAPI使用、小さめサイズ）
             M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
             M5.Lcd.setTextFont(&fonts::efontJA_16);
-            M5.Display.setTextSize(1);
+            M5.Display.setTextSize(0.5);  // サイズを半分に
             M5.Display.setTextColor(TFT_BLUE);
             M5.Display.setCursor(5, M5.Display.height() - 38);
             M5.Display.print("BT受信:");
