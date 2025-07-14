@@ -1,0 +1,119 @@
+// カスタム日本語フォント描画実装
+#include "custom_japanese_font.h"
+#include <M5Unified.h>
+#include <string.h>
+
+// フォント文字検索
+const FontChar* findFontChar(uint16_t unicode) {
+    for (uint16_t i = 0; i < custom_japanese_font_count; i++) {
+        if (pgm_read_word(&custom_japanese_font[i].unicode) == unicode) {
+            return &custom_japanese_font[i];
+        }
+    }
+    return nullptr; // 文字が見つからない場合
+}
+
+// カスタム文字描画（最適化版）
+void drawCustomChar(int x, int y, uint16_t unicode, uint16_t color) {
+    const FontChar* fontChar = findFontChar(unicode);
+    if (!fontChar) {
+        // 文字が見つからない場合は「？」を表示
+        drawCustomChar(x, y, 0xFF1F, color); // 全角クエスチョン
+        return;
+    }
+    
+    // ビットマップデータを描画（高速化）
+    for (int row = 0; row < CUSTOM_FONT_HEIGHT; row++) {
+        uint8_t line = pgm_read_byte(&fontChar->bitmap[row]);
+        if (line != 0) { // 空行をスキップして高速化
+            for (int col = 0; col < CUSTOM_FONT_WIDTH; col++) {
+                if (line & (0x80 >> col)) {
+                    M5.Display.drawPixel(x + col, y + row, color);
+                }
+            }
+        }
+    }
+}
+
+// UTF-8文字列を解析してUnicodeコードポイントを取得
+uint16_t utf8ToUnicode(const char* utf8, int& byteCount) {
+    uint8_t first = utf8[0];
+    byteCount = 1;
+    
+    if (first < 0x80) {
+        // ASCII文字 (1バイト)
+        return first;
+    } else if ((first & 0xE0) == 0xC0) {
+        // 2バイト文字
+        byteCount = 2;
+        return ((first & 0x1F) << 6) | (utf8[1] & 0x3F);
+    } else if ((first & 0xF0) == 0xE0) {
+        // 3バイト文字（日本語のほとんど）
+        byteCount = 3;
+        return ((first & 0x0F) << 12) | 
+               ((utf8[1] & 0x3F) << 6) | 
+               (utf8[2] & 0x3F);
+    } else if ((first & 0xF8) == 0xF0) {
+        // 4バイト文字
+        byteCount = 4;
+        return ((first & 0x07) << 18) | 
+               ((utf8[1] & 0x3F) << 12) | 
+               ((utf8[2] & 0x3F) << 6) | 
+               (utf8[3] & 0x3F);
+    }
+    
+    // 不正なUTF-8
+    return 0;
+}
+
+// カスタム文字列描画
+void drawCustomString(int x, int y, const char* str, uint16_t color) {
+    int currentX = x;
+    int currentY = y;
+    int strLen = strlen(str);
+    int i = 0;
+    
+    while (i < strLen) {
+        int byteCount;
+        uint16_t unicode = utf8ToUnicode(&str[i], byteCount);
+        
+        if (unicode == 0) {
+            i++;
+            continue; // 不正な文字をスキップ
+        }
+        
+        // 改行処理
+        if (unicode == 0x000A) { // LF
+            currentX = x;
+            currentY += CUSTOM_FONT_HEIGHT + 2;
+            i += byteCount;
+            continue;
+        }
+        
+        // 画面幅チェック（自動改行）
+        if (currentX + CUSTOM_FONT_WIDTH > M5.Display.width()) {
+            currentX = x;
+            currentY += CUSTOM_FONT_HEIGHT + 2;
+        }
+        
+        // 文字描画
+        drawCustomChar(currentX, currentY, unicode, color);
+        
+        currentX += CUSTOM_FONT_WIDTH + 1; // 文字間隔
+        i += byteCount;
+    }
+}
+
+// フォールバック描画（非対応文字用）
+void drawFallbackString(int x, int y, const char* str, uint16_t color) {
+    M5.Display.setTextColor(color);
+    M5.Display.setCursor(x, y);
+    M5.Display.setTextSize(1);
+    M5.Display.print(str);
+}
+
+// テスト用: フォント対応文字数表示
+void displayFontStats() {
+    String stats = "フォント: " + String(custom_japanese_font_count) + "文字対応";
+    drawCustomString(10, 10, stats.c_str(), TFT_GREEN);
+}
