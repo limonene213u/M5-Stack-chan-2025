@@ -34,6 +34,33 @@
 
 ## Font System - Japanese Support
 
+### **CRITICAL: Japanese Font Display Solution** ⭐
+
+**Problem**: Japanese text appears as squares (□) on M5Stack display
+
+**Solution** (verified working):
+
+```cpp
+#include "M5Unified.h"
+
+void setup() {
+  auto cfg = M5.config();
+  M5.begin(cfg);
+  
+  // CORRECT API: Use M5.Lcd.setTextFont() NOT M5.Display.setFont()
+  M5.Lcd.setTextFont(&fonts::efontJA_16);
+  M5.Display.setTextSize(1);
+  M5.Lcd.println("こんにちは");  // Will display correctly
+}
+```
+
+**Key Points**:
+
+- ✅ **CORRECT**: `M5.Lcd.setTextFont(&fonts::efontJA_16)`
+- ❌ **WRONG**: `M5.Display.setFont(&fonts::efontJA_16)` (causes squares)
+- Available fonts: `fonts::efontJA_16`, `fonts::efontJA_24`
+- Fallback: `fonts::Font0` for English text
+
 ### Current Implementation
 
 - **Font Library**: M5GFX internal fonts
@@ -104,4 +131,4 @@
 
 ## Last Updated
 
-2025年7月15日 - Fixed font initialization hang issue, stable build with basic Font0
+2025年7月15日 - Added critical Japanese font solution using M5.Lcd.setTextFont()
