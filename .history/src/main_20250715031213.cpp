@@ -580,26 +580,22 @@ void setup() {
   }
   delay(500);
   
-  // 設定ファイル読み込み（Codex提案：デフォルト設定のみ使用）
+  // 設定ファイル読み込み（安全な方法に変更）
   M5.Display.setCursor(10, 150);
-  M5.Display.print("Step 7: Config setup...");
-  Serial.println("DEBUG: Setting up default configuration");
+  M5.Display.print("Step 7: Config load...");
+  Serial.println("DEBUG: Before system_config.loadConfig");
   
-  // デフォルト通信設定（YAML依存を排除）
+  // SDカードからの設定読み込みをスキップして、デフォルトで開始
+  Serial.println("DEBUG: Using default config to avoid crash");
+  
+  // 基本的な通信設定のみ設定（正しいフィールドを使用）
   comm_config.webserver_port = 80;
   comm_config.bluetooth_device_name = "M5Stack-StackChan";
   comm_config.bluetooth_starting_state = true;
   
-  // 日本語メッセージのデフォルト設定
-  comm_config.lyrics.clear();
-  comm_config.lyrics.push_back("こんにちは");
-  comm_config.lyrics.push_back("元気です");
-  comm_config.lyrics.push_back("よろしく");
-  comm_config.lyrics.push_back("がんばります");
-  
-  Serial.println("DEBUG: Default config applied successfully");
+  Serial.println("DEBUG: After default config setup");
   M5.Display.setCursor(10, 170);
-  M5.Display.print("Step 8: Config OK (simple)");
+  M5.Display.print("Step 8: Config OK (default)");
   
   // Webサーバーポート設定
   M5.Display.setCursor(10, 190);
