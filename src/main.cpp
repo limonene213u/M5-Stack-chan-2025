@@ -13,7 +13,7 @@ using namespace m5avatar;
 
 // Avatar関連
 Avatar avatar;
-ColorPalette* cps[2];
+ColorPalette* cps[6];  // 6色に拡張
 bool avatar_initialized = false;
 
 // WiFi & WebServer関連
@@ -32,11 +32,15 @@ unsigned long last_speech_time = 0;
 bool speech_set_by_user = false;
 bool random_speech_enabled = false;
 
+// 色制御
+int current_color_index = 0;
+
 // 関数プロトタイプ宣言
 bool connectToWiFi();
 void handleRoot();
 void handleApiExpression();
 void handleApiColor();
+void handleApiSetColor();
 void handleApiSet();
 void handle404();
 void checkRandomSpeechConfig();
@@ -70,13 +74,36 @@ void setup() {
   // Avatar初期化（シンプル構成）
   try {
     Serial.println("ColorPalette作成開始");
-    cps[0] = new ColorPalette();
-    cps[1] = new ColorPalette();
+    // 6つの色パレットを作成
+    for (int i = 0; i < 6; i++) {
+      cps[i] = new ColorPalette();
+    }
     Serial.println("ColorPalette作成完了");
     
     Serial.println("ColorPalette設定開始");
+    // 0: 標準色（デフォルト）
+    // 標準設定のまま
+    
+    // 1: 青系
     cps[1]->set(COLOR_PRIMARY, TFT_YELLOW);
     cps[1]->set(COLOR_BACKGROUND, TFT_BLUE);
+    
+    // 2: 緑系
+    cps[2]->set(COLOR_PRIMARY, TFT_WHITE);
+    cps[2]->set(COLOR_BACKGROUND, TFT_GREEN);
+    
+    // 3: 赤系
+    cps[3]->set(COLOR_PRIMARY, TFT_WHITE);
+    cps[3]->set(COLOR_BACKGROUND, TFT_RED);
+    
+    // 4: 紫系
+    cps[4]->set(COLOR_PRIMARY, TFT_YELLOW);
+    cps[4]->set(COLOR_BACKGROUND, TFT_PURPLE);
+    
+    // 5: オレンジ系
+    cps[5]->set(COLOR_PRIMARY, TFT_BLACK);
+    cps[5]->set(COLOR_BACKGROUND, TFT_ORANGE);
+    
     Serial.println("ColorPalette設定完了");
     
     Serial.println("Avatar.init()実行開始");
@@ -84,7 +111,7 @@ void setup() {
     Serial.println("Avatar.init()実行完了");
     
     Serial.println("ColorPalette適用開始");
-    avatar.setColorPalette(*cps[0]);
+    avatar.setColorPalette(*cps[current_color_index]);
     Serial.println("ColorPalette適用完了");
     
     Serial.println("フォント設定開始");
@@ -130,6 +157,7 @@ void setup() {
     server.on("/", handleRoot);
     server.on("/api/expression", HTTP_GET, handleApiExpression);
     server.on("/api/color", HTTP_GET, handleApiColor);
+    server.on("/api/setcolor", HTTP_GET, handleApiSetColor);
     server.on("/api/set", HTTP_GET, handleApiSet);
     
     server.onNotFound(handle404);
@@ -361,6 +389,18 @@ void handleRoot() {
   html += "<button onclick='clearSpeech()'>セリフクリア</button>";
   html += "</div>";
   
+  html += "<div class='expression-control'>";
+  html += "<h3>色テーマ選択</h3>";
+  html += "<div style='display:flex;flex-wrap:wrap;gap:5px;'>";
+  html += "<button onclick='setColor(0)' style='background:#666;'>標準</button>";
+  html += "<button onclick='setColor(1)' style='background:#0066cc;'>青系</button>";
+  html += "<button onclick='setColor(2)' style='background:#009900;'>緑系</button>";
+  html += "<button onclick='setColor(3)' style='background:#cc0000;'>赤系</button>";
+  html += "<button onclick='setColor(4)' style='background:#6600cc;'>紫系</button>";
+  html += "<button onclick='setColor(5)' style='background:#ff6600;'>オレンジ</button>";
+  html += "</div>";
+  html += "</div>";
+  
   html += "<h3>System Status</h3>";
   html += "<p>Free Memory: " + String(ESP.getFreeHeap() / 1024) + " KB</p>";
   html += "<p>Uptime: " + String(millis() / 1000) + " seconds</p>";
@@ -399,6 +439,7 @@ void handleRoot() {
   html += "}";
   html += "function changeExpression(){fetch('/api/expression').then(()=>showStatus('表情変更')).catch(()=>showStatus('エラー', true));}";
   html += "function changeColor(){fetch('/api/color').then(()=>showStatus('色変更')).catch(()=>showStatus('エラー', true));}";
+  html += "function setColor(index){fetch('/api/setcolor?index=' + index).then(()=>showStatus('色設定')).catch(()=>showStatus('エラー', true));}";
   html += "function clearSpeech(){fetch('/api/set?speech=').then(()=>showStatus('セリフクリア')).catch(()=>showStatus('エラー', true));}";
   html += "function playPreset(index){";
   html += "  fetch('/api/preset?index=' + index)";
@@ -432,16 +473,15 @@ void handleApiExpression() {
 
 void handleApiColor() {
   if (avatar_initialized) {
-    static bool use_alt_color = false;
-    use_alt_color = !use_alt_color;
+    // 次の色に切り替え（6色をサイクル）
+    current_color_index = (current_color_index + 1) % 6;
     
-    if (use_alt_color) {
-      avatar.setColorPalette(*cps[1]);
-      current_message = "青色";
-    } else {
-      avatar.setColorPalette(*cps[0]);
-      current_message = "標準色";
-    }
+    const char* color_names[] = {
+      "標準色", "青系", "緑系", "赤系", "紫系", "オレンジ系"
+    };
+    
+    avatar.setColorPalette(*cps[current_color_index]);
+    current_message = String(color_names[current_color_index]);
     
     avatar.setSpeechText(current_message.c_str());
     server.send(200, "text/plain", "Color changed to: " + current_message);
@@ -449,6 +489,36 @@ void handleApiColor() {
   } else {
     server.send(500, "text/plain", "Avatar not initialized");
   }
+}
+
+void handleApiSetColor() {
+  if (!avatar_initialized) {
+    server.send(500, "text/plain", "Avatar not initialized");
+    return;
+  }
+  
+  if (!server.hasArg("index")) {
+    server.send(400, "text/plain", "Missing index parameter");
+    return;
+  }
+  
+  int color_index = server.arg("index").toInt();
+  if (color_index < 0 || color_index >= 6) {
+    server.send(400, "text/plain", "Invalid color index (0-5)");
+    return;
+  }
+  
+  const char* color_names[] = {
+    "標準色", "青系", "緑系", "赤系", "紫系", "オレンジ系"
+  };
+  
+  current_color_index = color_index;
+  avatar.setColorPalette(*cps[current_color_index]);
+  current_message = String(color_names[current_color_index]);
+  avatar.setSpeechText(current_message.c_str());
+  
+  server.send(200, "text/plain", "Color set to: " + current_message);
+  Serial.println("API: 色直接設定 -> " + current_message);
 }
 
 void handleApiSet() {
