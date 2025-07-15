@@ -1,726 +1,480 @@
 /*
- * Stack-chan Communication Edition
- * WiFi WebServer + Bluetooth + Avatar Display System
- * 
- * @author based on TakaoAkaki's stack-chan-tester
- * Copyright (c) 2024. All right reserved
+ * Stack-chan シンプル構成 Avatar + WiFi + WebServer
+ * Avatar表示 + WiFi接続 + 基本WebUI
  */
 
-// ------------------------
-// ヘッダファイルのinclude
-#include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <ArduinoJson.h>
-#include <BluetoothSerial.h>
 #include <M5Unified.h>
 #include <Avatar.h>
-#include <SD.h>
-#include "formatString.hpp"
-#include "communication_config.h"
-#include "wifi_manager.h"
+#include <WiFi.h>
+#include <WebServer.h>
+#include "simple_wifi_config.h"
 
-// 日本語フォント用
-#include <M5GFX.h>
-
-// UTF-8エンコーディング指定
-#pragma GCC diagnostic ignored "-Wwrite-strings"
-
-// ------------------------
-// グローバル変数定義
 using namespace m5avatar;
+
+// Avatar関連
 Avatar avatar;
-ColorPalette *cps[2];
+ColorPalette* cps[2];
+bool avatar_initialized = false;
 
-// WiFi & WebServer
-CommunicationConfig comm_config;
-WiFiManager* wifi_manager;
-WebServer* server = nullptr;
-
-// Bluetooth
-BluetoothSerial SerialBT;
-
+// WiFi & WebServer関連
+WebServer server(WEBSERVER_PORT);
+bool wifi_connected = false;
+String current_ip = "";
+unsigned long last_wifi_check = 0;
 
 // 表示制御
-uint32_t display_update_interval = 2000;
-uint32_t last_display_update = 0;
-String current_message = "待機中...";
-String last_received_data = "";
-bool bluetooth_connected = false;
+String current_message = "スタックちゃん";
+unsigned long last_expression_change = 0;
+int current_expression = 0;
 
-// ランダム日本語メッセージ
-int lyrics_idx = 0;
+// 関数プロトタイプ宣言
+bool connectToWiFi();
+void handleRoot();
+void handleApiExpression();
+void handleApiColor();
+void handleApiSet();
+void handle404();
 
-// 状態管理
-enum CommunicationMode {
-  WIFI_MODE,
-  BLUETOOTH_MODE,
-  BOTH_MODE
-};
-CommunicationMode current_mode = BOTH_MODE;
-
-// ------------------------
-// WiFi WebServer API ハンドラー
-void handleRoot() {
-  String html = "<!DOCTYPE html><html><head>";
-  html += "<meta charset='UTF-8'><title>スタックチャン 通信パネル</title>";
-  html += "<style>body { font-family: 'Hiragino Sans', 'ヒラギノ角ゴ ProN W3', sans-serif; margin: 20px; background: #f5f5f5; }";
-  html += ".container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }";
-  html += ".header { text-align: center; margin-bottom: 30px; }";
-  html += ".button { background-color: #4CAF50; color: white; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; margin: 5px; font-size: 16px; }";
-  html += ".button:hover { background-color: #45a049; }";
-  html += ".button.secondary { background-color: #2196F3; }";
-  html += ".button.danger { background-color: #f44336; }";
-  html += ".input-group { margin: 15px 0; }";
-  html += "label { display: block; margin-bottom: 8px; font-weight: bold; }";
-  html += "input, textarea, select { width: 100%; padding: 12px; border-radius: 6px; border: 1px solid #ddd; font-size: 16px; }";
-  html += ".status-panel { background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 20px 0; }";
-  html += ".wifi-panel { background: #e3f2fd; padding: 15px; border-radius: 6px; margin: 20px 0; }";
-  html += ".network-list { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; border-radius: 6px; }";
-  html += ".network-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }";
-  html += ".network-item:hover { background: #f0f0f0; }";
-  html += ".network-item.connected { background: #c8e6c9; }";
-  html += "</style></head><body>";
-  html += "<div class='container'>";
-  html += "<div class='header'><h1>スタックチャン 通信パネル</h1></div>";
+void setup() {
+  // M5Stack基本初期化
+  Serial.begin(115200);
+  delay(100); // シリアル安定化
+  Serial.println("=== Stack-chan Avatar + WiFi + WebServer Edition ===");
+  Serial.println("setup() 開始");
+  Serial.printf("起動時メモリ: %d bytes\n", ESP.getFreeHeap());
   
-  // メッセージ送信パネル
-  html += "<div class='input-group'><label for='message'>メッセージ送信:</label>";
-  html += "<textarea id='message' rows='3' placeholder='表示したいメッセージを入力してください'></textarea>";
-  html += "<button class='button' onclick='sendMessage()'>送信</button></div>";
+  Serial.println("M5.config() 設定中...");
+  auto cfg = M5.config();
+  Serial.println("M5.begin() 実行中...");
+  M5.begin(cfg);
+  Serial.println("M5Stack初期化完了");
+  Serial.printf("M5初期化後メモリ: %d bytes\n", ESP.getFreeHeap());
   
-  // 表情変更パネル
-  html += "<div class='input-group'><label for='expression'>表情変更:</label>";
-  html += "<select id='expression'><option value='normal'>普通</option><option value='happy'>嬉しい</option>";
-  html += "<option value='sleepy'>眠い</option><option value='doubt'>疑問</option></select>";
-  html += "<button class='button' onclick='changeExpression()'>表情変更</button></div>";
-  
-  // WiFi管理パネル
-  html += "<div class='wifi-panel'><h3>WiFi管理</h3>";
-  html += "<button class='button secondary' onclick='scanNetworks()'>ネットワークスキャン</button>";
-  html += "<button class='button secondary' onclick='toggleWiFiMode()'>WiFiモード切替</button>";
-  html += "<div id='networkList' class='network-list'></div>";
-  html += "<div class='input-group'><label for='newSSID'>新しいネットワーク追加:</label>";
-  html += "<input type='text' id='newSSID' placeholder='SSID'>";
-  html += "<input type='password' id='newPassword' placeholder='パスワード'>";
-  html += "<button class='button' onclick='addNetwork()'>追加</button></div></div>";
-  
-  // ステータスパネル
-  html += "<div class='status-panel'><h3>システム状態</h3><div id='status'>読み込み中...</div></div>";
-  
-  html += "</div>";
-  
-  // JavaScript
-  html += "<script>";
-  html += "function sendMessage() { const message = document.getElementById('message').value;";
-  html += "fetch('/api/message', { method: 'POST', headers: {'Content-Type': 'application/json'},";
-  html += "body: JSON.stringify({message: message}) }).then(response => response.json())";
-  html += ".then(data => { alert('メッセージを送信しました: ' + data.status); document.getElementById('message').value = ''; updateStatus(); }); }";
-  
-  html += "function changeExpression() { const expression = document.getElementById('expression').value;";
-  html += "fetch('/api/expression', { method: 'POST', headers: {'Content-Type': 'application/json'},";
-  html += "body: JSON.stringify({expression: expression}) }).then(response => response.json())";
-  html += ".then(data => { alert('表情を変更しました: ' + data.status); updateStatus(); }); }";
-  
-  html += "function scanNetworks() { fetch('/api/wifi/scan').then(response => response.json()).then(data => { updateNetworkList(data.networks); }); }";
-  
-  html += "function toggleWiFiMode() { fetch('/api/wifi/toggle', {method: 'POST'}).then(response => response.json()).then(data => { alert('WiFiモードを切り替えました: ' + data.mode); updateStatus(); }); }";
-  
-  html += "function addNetwork() { const ssid = document.getElementById('newSSID').value; const password = document.getElementById('newPassword').value;";
-  html += "if(!ssid) { alert('SSIDを入力してください'); return; }";
-  html += "fetch('/api/wifi/add', { method: 'POST', headers: {'Content-Type': 'application/json'},";
-  html += "body: JSON.stringify({ssid: ssid, password: password}) }).then(response => response.json())";
-  html += ".then(data => { alert('ネットワークを追加しました'); document.getElementById('newSSID').value = ''; document.getElementById('newPassword').value = ''; scanNetworks(); }); }";
-  
-  html += "function connectToNetwork(ssid) { fetch('/api/wifi/connect', { method: 'POST', headers: {'Content-Type': 'application/json'},";
-  html += "body: JSON.stringify({ssid: ssid}) }).then(response => response.json()).then(data => { alert('接続を試行中: ' + ssid); updateStatus(); }); }";
-  
-  html += "function updateNetworkList(networks) { const listEl = document.getElementById('networkList'); listEl.innerHTML = '';";
-  html += "networks.forEach(net => { const div = document.createElement('div'); div.className = 'network-item' + (net.connected ? ' connected' : '');";
-  html += "div.innerHTML = net.ssid + (net.connected ? ' (接続中)' : ''); div.onclick = () => connectToNetwork(net.ssid); listEl.appendChild(div); }); }";
-  
-  html += "function updateStatus() { fetch('/api/status').then(response => response.json()).then(data => {";
-  html += "document.getElementById('status').innerHTML = '<p><strong>現在のメッセージ:</strong> ' + data.current_message + '</p>' +";
-  html += "'<p><strong>最後の受信:</strong> ' + data.last_received + '</p>' +";
-  html += "'<p><strong>Bluetooth:</strong> ' + (data.bluetooth_connected ? '接続済み' : '未接続') + '</p>' +";
-  html += "'<p><strong>WiFi状態:</strong> ' + data.wifi_status + '</p>' +";
-  html += "'<p><strong>IPアドレス:</strong> ' + data.ip_address + '</p>' +";
-  html += "'<p><strong>接続クライアント数:</strong> ' + data.connected_clients + '</p>'; }); }";
-  
-  html += "updateStatus(); scanNetworks(); setInterval(updateStatus, 5000);</script></body></html>";
-  server->send(200, "text/html", html);
-}
-
-void handleMessage() {
-  if (server->method() != HTTP_POST) {
-    server->send(405, "application/json", "{\"error\":\"Method not allowed\"}");
-    return;
-  }
-  
-  DynamicJsonDocument doc(1024);
-  DeserializationError error = deserializeJson(doc, server->arg("plain"));
-  
-  if (error) {
-    server->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-    return;
-  }
-  
-  String message = doc["message"];
-  current_message = message;
-  avatar.setSpeechText(message.c_str());
-  last_received_data = "WiFi: " + message;
-  
-  // シンプルな表示（英語フォント使用）
-  M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
-  M5.Display.setFont(&fonts::Font0);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_GREEN);
-  M5.Display.setCursor(5, M5.Display.height() - 38);
-  M5.Display.print("WiFi RX:");
+  // 初期表示
+  M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE);
-  M5.Display.setCursor(5, M5.Display.height() - 18);
-  M5.Display.print(message);
+  M5.Display.setCursor(10, 10);
+  M5.Display.println("Avatar初期化中...");
   
-  M5_LOGI("WiFi Message received: %s", message.c_str());
+  Serial.println("Avatar初期化開始");
+  Serial.printf("Free heap before Avatar: %d bytes\n", ESP.getFreeHeap());
   
-  server->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Message received\"}");
-}
-
-void handleExpression() {
-  if (server->method() != HTTP_POST) {
-    server->send(405, "application/json", "{\"error\":\"Method not allowed\"}");
-    return;
-  }
-  
-  DynamicJsonDocument doc(1024);
-  DeserializationError error = deserializeJson(doc, server->arg("plain"));
-  
-  if (error) {
-    server->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-    return;
-  }
-  
-  String expression = doc["expression"];
-  
-  // 表情変更
-  if (expression == "happy") {
-    avatar.setExpression(Expression::Happy);
-  } else if (expression == "sleepy") {
-    avatar.setExpression(Expression::Sleepy);
-  } else if (expression == "doubt") {
-    avatar.setExpression(Expression::Doubt);
-  } else {
-    avatar.setExpression(Expression::Neutral);
-  }
-  
-  M5_LOGI("Expression changed to: %s", expression.c_str());
-  
-  server->send(200, "application/json", "{\"status\":\"success\",\"expression\":\"" + expression + "\"}");
-}
-
-void handleStatus() {
-  DynamicJsonDocument doc(1024);
-  doc["current_message"] = current_message;
-  doc["last_received"] = last_received_data;
-  doc["bluetooth_connected"] = bluetooth_connected;
-  doc["wifi_connected"] = wifi_manager->isConnected();
-  doc["wifi_status"] = wifi_manager->getStatus();
-  doc["ip_address"] = wifi_manager->getIPAddress();
-  doc["connected_clients"] = wifi_manager->getConnectedClients();
-  doc["is_ap_mode"] = wifi_manager->isAPMode();
-  doc["mode"] = current_mode;
-  
-  String response;
-  serializeJson(doc, response);
-  server->send(200, "application/json", response);
-}
-
-// WiFi管理API
-void handleWiFiScan() {
-  wifi_manager->refreshNetworkScan();
-  auto available = wifi_manager->getAvailableNetworks();
-  auto configured = comm_config.getValidNetworks();
-  
-  DynamicJsonDocument doc(2048);
-  JsonArray networks = doc.createNestedArray("networks");
-  
-  for (const auto& ssid : available) {
-    JsonObject network = networks.createNestedObject();
-    network["ssid"] = ssid;
-    network["available"] = true;
-    network["connected"] = (ssid == wifi_manager->getCurrentSSID());
+  // Avatar初期化（シンプル構成）
+  try {
+    Serial.println("ColorPalette作成開始");
+    cps[0] = new ColorPalette();
+    cps[1] = new ColorPalette();
+    Serial.println("ColorPalette作成完了");
     
-    // 設定済みかチェック
-    bool configured_network = false;
-    for (const auto& config_net : configured) {
-      if (config_net.ssid == ssid) {
-        configured_network = true;
-        network["priority"] = config_net.priority;
-        break;
+    Serial.println("ColorPalette設定開始");
+    cps[1]->set(COLOR_PRIMARY, TFT_YELLOW);
+    cps[1]->set(COLOR_BACKGROUND, TFT_BLUE);
+    Serial.println("ColorPalette設定完了");
+    
+    Serial.println("Avatar.init()実行開始");
+    avatar.init();
+    Serial.println("Avatar.init()実行完了");
+    
+    Serial.println("ColorPalette適用開始");
+    avatar.setColorPalette(*cps[0]);
+    Serial.println("ColorPalette適用完了");
+    
+    Serial.println("フォント設定開始");
+    avatar.setSpeechFont(&fonts::efontJA_12);
+    Serial.println("フォント設定完了");
+    
+    Serial.println("初期表情設定開始");
+    avatar.setExpression(Expression::Neutral);
+    Serial.println("初期表情設定完了");
+    
+    Serial.println("初期セリフ設定開始");
+    avatar.setSpeechText(current_message.c_str());
+    Serial.println("初期セリフ設定完了");
+    
+    avatar_initialized = true;
+    Serial.println("Avatar初期化成功");
+    Serial.printf("Free heap after Avatar: %d bytes\n", ESP.getFreeHeap());
+    
+  } catch (...) {
+    Serial.println("Avatar初期化で例外が発生しました");
+    avatar_initialized = false;
+    
+    // フォールバック表示
+    M5.Display.fillScreen(TFT_RED);
+    M5.Display.setCursor(10, 10);
+    M5.Display.println("Avatar Error");
+    M5.Display.println("Basic Mode");
+    Serial.println("Avatar初期化失敗 - フォールバックモードで継続");
+  }
+  
+  // WiFi接続開始
+  Serial.println("WiFi接続開始");
+  current_message = "WiFi接続中...";
+  if (avatar_initialized) {
+    avatar.setSpeechText(current_message.c_str());
+  }
+  
+  if (connectToWiFi()) {
+    // WebServer初期化
+    Serial.println("WebServer初期化開始");
+    
+    // ルート設定
+    server.on("/", handleRoot);
+    server.on("/api/expression", HTTP_GET, handleApiExpression);
+    server.on("/api/color", HTTP_GET, handleApiColor);
+    server.on("/api/set", HTTP_GET, handleApiSet);
+    
+    server.onNotFound(handle404);
+    
+    // サーバー開始
+    server.begin();
+    Serial.printf("WebServer開始: http://%s/\n", current_ip.c_str());
+    
+    current_message = String("WebUI: ") + current_ip;
+    if (avatar_initialized) {
+      avatar.setSpeechText(current_message.c_str());
+    }
+  } else {
+    Serial.println("WiFi接続失敗 - WebServerは無効");
+  }
+  
+  Serial.println("初期化完了 - Avatar + WiFi + WebServer モード");
+}
+
+void loop() {
+  M5.update();
+  
+  // WebServer処理（WiFi接続時のみ）
+  if (wifi_connected) {
+    server.handleClient();
+  }
+  
+  if (avatar_initialized) {
+    // Button A: 表情変更（4種類をサイクル）
+    if (M5.BtnA.wasPressed()) {
+      Serial.println("Button A: 表情変更");
+      current_expression = (current_expression + 1) % 4;
+      
+      switch (current_expression) {
+        case 0:
+          avatar.setExpression(Expression::Neutral);
+          current_message = "普通";
+          break;
+        case 1:
+          avatar.setExpression(Expression::Happy);
+          current_message = "嬉しい";
+          break;
+        case 2:
+          avatar.setExpression(Expression::Sleepy);
+          current_message = "眠い";
+          break;
+        case 3:
+          avatar.setExpression(Expression::Doubt);
+          current_message = "困った";
+          break;
+      }
+      
+      avatar.setSpeechText(current_message.c_str());
+      Serial.printf("表情: %s\n", current_message.c_str());
+    }
+    
+    // Button B: WiFi再接続
+    if (M5.BtnB.wasPressed()) {
+      Serial.println("Button B: WiFi再接続");
+      connectToWiFi();
+    }
+    
+    // Button C: IP表示
+    if (M5.BtnC.wasPressed()) {
+      Serial.println("Button C: IP表示");
+      if (wifi_connected) {
+        current_message = String("IP: ") + current_ip;
+        avatar.setSpeechText(current_message.c_str());
+        Serial.printf("IP表示: %s\n", current_ip.c_str());
+      } else {
+        current_message = "WiFi未接続";
+        avatar.setSpeechText(current_message.c_str());
       }
     }
-    network["configured"] = configured_network;
-  }
-  
-  String response;
-  serializeJson(doc, response);
-  server->send(200, "application/json", response);
-}
-
-void handleWiFiToggle() {
-  bool success = false;
-  String mode;
-  
-  if (wifi_manager->isAPMode()) {
-    success = wifi_manager->switchToSTAMode();
-    mode = success ? "STAモード" : "切り替え失敗";
+    
+    // 自動まばたき（10秒ごと）
+    if (millis() - last_expression_change > 10000) {
+      avatar.setExpression(Expression::Neutral);
+      last_expression_change = millis();
+    }
+    
   } else {
-    success = wifi_manager->switchToAPMode();
-    mode = success ? "APモード" : "切り替え失敗";
+    // Avatar失敗時の基本操作
+    if (M5.BtnA.wasPressed()) {
+      M5.Display.fillScreen(TFT_GREEN);
+      M5.Display.setCursor(10, 10);
+      M5.Display.println("Button A");
+      delay(500);
+    }
+    
+    if (M5.BtnB.wasPressed()) {
+      M5.Display.fillScreen(TFT_BLUE);
+      M5.Display.setCursor(10, 10);
+      M5.Display.println("WiFi Retry");
+      connectToWiFi();
+      delay(500);
+    }
+    
+    if (M5.BtnC.wasPressed()) {
+      M5.Display.fillScreen(TFT_YELLOW);
+      M5.Display.setCursor(10, 10);
+      M5.Display.println("Button C");
+      delay(500);
+    }
   }
   
-  DynamicJsonDocument doc(512);
-  doc["success"] = success;
-  doc["mode"] = mode;
-  doc["ip"] = wifi_manager->getIPAddress();
+  // WiFi接続状態監視（30秒ごと）
+  if (millis() - last_wifi_check > 30000) {
+    if (wifi_connected && WiFi.status() != WL_CONNECTED) {
+      Serial.println("WiFi接続が切断されました");
+      wifi_connected = false;
+      current_ip = "";
+      current_message = "WiFi切断";
+      if (avatar_initialized) {
+        avatar.setSpeechText(current_message.c_str());
+      }
+    }
+    last_wifi_check = millis();
+  }
   
-  String response;
-  serializeJson(doc, response);
-  server->send(200, "application/json", response);
+  // システム監視（10秒ごと）
+  static unsigned long last_heartbeat = 0;
+  if (millis() - last_heartbeat > 10000) {
+    Serial.printf("Avatar=%s, WiFi=%s, Memory=%dKB, Uptime=%lus\n", 
+                  avatar_initialized ? "OK" : "NG",
+                  wifi_connected ? "OK" : "NG", 
+                  ESP.getFreeHeap() / 1024, 
+                  millis() / 1000);
+    last_heartbeat = millis();
+  }
+  
+  delay(50);
 }
 
-void handleWiFiAdd() {
-  if (server->method() != HTTP_POST) {
-    server->send(405, "application/json", "{\"error\":\"Method not allowed\"}");
-    return;
+// WiFi接続関数
+bool connectToWiFi() {
+  wifi_connected = false;
+  current_ip = "";
+  
+  // 既存の接続があれば切断
+  if (WiFi.status() == WL_CONNECTED) {
+    WiFi.disconnect();
+    delay(100);
   }
   
-  DynamicJsonDocument doc(1024);
-  DeserializationError error = deserializeJson(doc, server->arg("plain"));
-  
-  if (error) {
-    server->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-    return;
+  // 設定されたWiFiネットワークを順番に試行
+  for (int i = 0; wifi_networks[i].ssid != nullptr; i++) {
+    Serial.printf("WiFi接続試行: %s (優先度:%d)\n", 
+                  wifi_networks[i].ssid, wifi_networks[i].priority);
+    
+    // Avatar表示更新
+    if (avatar_initialized) {
+      current_message = String("接続中: ") + wifi_networks[i].ssid;
+      avatar.setSpeechText(current_message.c_str());
+    }
+    
+    WiFi.begin(wifi_networks[i].ssid, wifi_networks[i].password);
+    
+    // 接続待機（最大10秒）
+    unsigned long start_time = millis();
+    while (WiFi.status() != WL_CONNECTED && 
+           (millis() - start_time) < CONNECTION_TIMEOUT) {
+      delay(500);
+      Serial.print(".");
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      wifi_connected = true;
+      current_ip = WiFi.localIP().toString();
+      current_message = String("IP: ") + current_ip;
+      
+      Serial.printf("\nWiFi接続成功: %s\n", current_ip.c_str());
+      Serial.printf("   SSID: %s\n", WiFi.SSID().c_str());
+      Serial.printf("   RSSI: %d dBm\n", WiFi.RSSI());
+      
+      if (avatar_initialized) {
+        avatar.setSpeechText(current_message.c_str());
+      }
+      
+      return true;
+    } else {
+      Serial.printf("\nWiFi接続失敗: %s\n", wifi_networks[i].ssid);
+    }
   }
   
-  String ssid = doc["ssid"];
-  String password = doc["password"];
-  int priority = doc["priority"] | 5; // デフォルト優先度
-  
-  if (ssid.isEmpty()) {
-    server->send(400, "application/json", "{\"error\":\"SSID is required\"}");
-    return;
+  // 全て失敗
+  current_message = "WiFi接続失敗";
+  if (avatar_initialized) {
+    avatar.setSpeechText(current_message.c_str());
   }
-  
-  comm_config.addWiFiNetwork(ssid, password, priority);
-  
-  M5_LOGI("WiFi network added: %s", ssid.c_str());
-  
-  server->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Network added\"}");
+  Serial.println("全てのWiFiネットワークへの接続に失敗");
+  return false;
 }
 
-void handleWiFiConnect() {
-  if (server->method() != HTTP_POST) {
-    server->send(405, "application/json", "{\"error\":\"Method not allowed\"}");
+// WebServerハンドラー関数
+void handleRoot() {
+  String html = "<html><head><title>Stack-chan</title>";
+  html += "<meta charset='UTF-8'>";
+  html += "<style>body{font-family:Arial;margin:20px;} ";
+  html += "button{padding:10px;margin:5px;border:none;border-radius:5px;background:#007bff;color:white;cursor:pointer;} ";
+  html += "button:hover{background:#0056b3;} ";
+  html += "input,select{padding:8px;margin:5px;border:1px solid #ccc;border-radius:3px;} ";
+  html += ".expression-control{border:1px solid #ddd;padding:15px;margin:10px 0;border-radius:5px;background:#f9f9f9;} ";
+  html += "</style></head><body>";
+  html += "<h1>Stack-chan WebUI</h1>";
+  
+  html += "<div class='expression-control'>";
+  html += "<h3>表情とセリフの設定</h3>";
+  html += "<select id='expressionSelect'>";
+  html += "<option value='0'>普通 (Neutral)</option>";
+  html += "<option value='1'>嬉しい (Happy)</option>";
+  html += "<option value='2'>眠い (Sleepy)</option>";
+  html += "<option value='3'>困った (Doubt)</option>";
+  html += "</select>";
+  html += "<input type='text' id='speechText' placeholder='セリフを入力してください...' maxlength='50'>";
+  html += "<button onclick='setExpressionAndSpeech()'>表情とセリフを設定</button>";
+  html += "</div>";
+  
+  html += "<div class='expression-control'>";
+  html += "<h3>クイック操作</h3>";
+  html += "<button onclick='changeExpression()'>表情サイクル</button> ";
+  html += "<button onclick='changeColor()'>色変更</button> ";
+  html += "<button onclick='clearSpeech()'>セリフクリア</button>";
+  html += "</div>";
+  
+  html += "<h3>System Status</h3>";
+  html += "<p>Free Memory: " + String(ESP.getFreeHeap() / 1024) + " KB</p>";
+  html += "<p>Uptime: " + String(millis() / 1000) + " seconds</p>";
+  html += "<p>WiFi SSID: " + WiFi.SSID() + "</p>";
+  html += "<p>IP Address: " + WiFi.localIP().toString() + "</p>";
+  html += "<p>Signal: " + String(WiFi.RSSI()) + " dBm</p>";
+  html += "<br>";
+  html += "<button onclick='location.reload()'>ページ更新</button>";
+  
+  html += "<script>";
+  html += "function setExpressionAndSpeech(){";
+  html += "  var expr = document.getElementById('expressionSelect').value;";
+  html += "  var speech = document.getElementById('speechText').value;";
+  html += "  if(!speech) speech = ''; ";
+  html += "  fetch('/api/set?expression=' + expr + '&speech=' + encodeURIComponent(speech))";
+  html += "    .then(response => response.text())";
+  html += "    .then(data => alert('設定完了: ' + data))";
+  html += "    .catch(error => alert('エラー: ' + error));";
+  html += "}";
+  html += "function changeExpression(){fetch('/api/expression').then(()=>alert('表情変更')).catch(()=>alert('エラー'));}";
+  html += "function changeColor(){fetch('/api/color').then(()=>alert('色変更')).catch(()=>alert('エラー'));}";
+  html += "function clearSpeech(){fetch('/api/set?speech=').then(()=>alert('セリフクリア')).catch(()=>alert('エラー'));}";
+  html += "function playPreset(index){";
+  html += "  fetch('/api/preset?index=' + index)";
+  html += "    .then(response => response.text())";
+  html += "    .then(data => console.log('プリセット再生: ' + data))";
+  html += "    .catch(error => alert('エラー: ' + error));";
+  html += "}";
+  html += "</script>";
+  html += "</body></html>";
+  
+  server.send(200, "text/html", html);
+  Serial.println("WebUI Access: " + server.client().remoteIP().toString());
+}
+
+void handleApiExpression() {
+  if (avatar_initialized) {
+    current_expression = (current_expression + 1) % 4;
+    switch (current_expression) {
+      case 0: avatar.setExpression(Expression::Neutral); current_message = "普通"; break;
+      case 1: avatar.setExpression(Expression::Happy); current_message = "嬉しい"; break;
+      case 2: avatar.setExpression(Expression::Sleepy); current_message = "眠い"; break;
+      case 3: avatar.setExpression(Expression::Doubt); current_message = "困った"; break;
+    }
+    avatar.setSpeechText(current_message.c_str());
+    server.send(200, "text/plain", "Expression changed to: " + current_message);
+    Serial.println("API: 表情変更 -> " + current_message);
+  } else {
+    server.send(500, "text/plain", "Avatar not initialized");
+  }
+}
+
+void handleApiColor() {
+  if (avatar_initialized) {
+    static bool use_alt_color = false;
+    use_alt_color = !use_alt_color;
+    
+    if (use_alt_color) {
+      avatar.setColorPalette(*cps[1]);
+      current_message = "青色";
+    } else {
+      avatar.setColorPalette(*cps[0]);
+      current_message = "標準色";
+    }
+    
+    avatar.setSpeechText(current_message.c_str());
+    server.send(200, "text/plain", "Color changed to: " + current_message);
+    Serial.println("API: 色変更 -> " + current_message);
+  } else {
+    server.send(500, "text/plain", "Avatar not initialized");
+  }
+}
+
+void handleApiSet() {
+  if (!avatar_initialized) {
+    server.send(500, "text/plain", "Avatar not initialized");
     return;
   }
   
-  DynamicJsonDocument doc(1024);
-  DeserializationError error = deserializeJson(doc, server->arg("plain"));
+  String response = "";
   
-  if (error) {
-    server->send(400, "application/json", "{\"error\":\"Invalid JSON\"}");
-    return;
-  }
-  
-  String ssid = doc["ssid"];
-  
-  // 設定済みネットワークから検索
-  auto networks = comm_config.getValidNetworks();
-  for (const auto& network : networks) {
-    if (network.ssid == ssid) {
-      bool success = wifi_manager->connectToNetwork(network);
-      
-      DynamicJsonDocument response_doc(512);
-      response_doc["success"] = success;
-      response_doc["message"] = success ? "接続成功" : "接続失敗";
-      response_doc["ssid"] = ssid;
-      
-      String response;
-      serializeJson(response_doc, response);
-      server->send(200, "application/json", response);
+  // 表情パラメータの処理
+  if (server.hasArg("expression")) {
+    int expr = server.arg("expression").toInt();
+    if (expr >= 0 && expr <= 3) {
+      current_expression = expr;
+      switch (expr) {
+        case 0: 
+          avatar.setExpression(Expression::Neutral); 
+          response += "表情: 普通";
+          break;
+        case 1: 
+          avatar.setExpression(Expression::Happy); 
+          response += "表情: 嬉しい";
+          break;
+        case 2: 
+          avatar.setExpression(Expression::Sleepy); 
+          response += "表情: 眠い";
+          break;
+        case 3: 
+          avatar.setExpression(Expression::Doubt); 
+          response += "表情: 困った";
+          break;
+      }
+    } else {
+      server.send(400, "text/plain", "Invalid expression value (0-3)");
       return;
     }
   }
   
-  server->send(404, "application/json", "{\"error\":\"Network not configured\"}");
-}
-
-// ------------------------
-// Bluetooth通信処理
-void handleBluetoothData() {
-  if (SerialBT.available()) {
-    String receivedData = SerialBT.readString();
-    receivedData.trim();
+  // セリフパラメータの処理
+  if (server.hasArg("speech")) {
+    String speech = server.arg("speech");
+    current_message = speech;
+    avatar.setSpeechText(speech.c_str());
     
-    if (receivedData.length() > 0) {
-      M5_LOGI("Bluetooth data received: %s", receivedData.c_str());
-      
-      // JSON形式のデータかチェック
-      if (receivedData.startsWith("{")) {
-        DynamicJsonDocument doc(1024);
-        DeserializationError error = deserializeJson(doc, receivedData);
-        
-        if (!error) {
-          // JSON形式の場合
-          if (doc.containsKey("message")) {
-            current_message = doc["message"].as<String>();
-            avatar.setSpeechText(current_message.c_str());
-            
-            // 内蔵日本語フォントで画面表示
-            M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
-            M5.Display.setFont(&fonts::efontJA_16);
-            M5.Display.setTextSize(1);
-            M5.Display.setTextColor(TFT_BLUE);
-            M5.Display.setCursor(5, M5.Display.height() - 38);
-            M5.Display.print("BT受信:");
-            M5.Display.setTextColor(TFT_WHITE);
-            M5.Display.setCursor(5, M5.Display.height() - 18);
-            M5.Display.print(current_message);
-          }
-          if (doc.containsKey("expression")) {
-            String expression = doc["expression"];
-            if (expression == "happy") {
-              avatar.setExpression(Expression::Happy);
-            } else if (expression == "sleepy") {
-              avatar.setExpression(Expression::Sleepy);
-            } else if (expression == "doubt") {
-              avatar.setExpression(Expression::Doubt);
-            } else {
-              avatar.setExpression(Expression::Neutral);
-            }
-          }
-        } else {
-          // JSON解析失敗時はそのまま表示
-          current_message = receivedData;
-          avatar.setSpeechText(current_message.c_str());
-          
-          // シンプルな表示（英語フォント使用）
-          M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
-          M5.Display.setFont(&fonts::Font0);
-          M5.Display.setTextSize(1);
-          M5.Display.setTextColor(TFT_BLUE);
-          M5.Display.setCursor(5, M5.Display.height() - 38);
-          M5.Display.print("BT RX:");
-          M5.Display.setTextColor(TFT_WHITE);
-          M5.Display.setCursor(5, M5.Display.height() - 18);
-          M5.Display.print(current_message);
-        }
-      } else {
-        // プレーンテキストの場合
-        current_message = receivedData;
-        avatar.setSpeechText(current_message.c_str());
-        
-        // シンプルな表示（英語フォント使用）
-        M5.Display.fillRect(0, M5.Display.height() - 40, M5.Display.width(), 40, TFT_BLACK);
-        M5.Display.setFont(&fonts::Font0);
-        M5.Display.setTextSize(1);
-        M5.Display.setTextColor(TFT_BLUE);
-        M5.Display.setCursor(5, M5.Display.height() - 38);
-        M5.Display.print("BT RX:");
-        M5.Display.setTextColor(TFT_WHITE);
-        M5.Display.setCursor(5, M5.Display.height() - 18);
-        M5.Display.print(current_message);
-      }
-      
-      last_received_data = "BT: " + receivedData;
-      
-      // 受信確認をBluetoothで返送
-      SerialBT.println("ACK: " + receivedData);
-    }
+    if (response.length() > 0) response += ", ";
+    response += "セリフ: \"" + speech + "\"";
   }
+  
+  if (response.length() == 0) {
+    response = "パラメータが指定されていません";
+  }
+  
+  server.send(200, "text/plain", response);
+  Serial.println("API: 設定変更 -> " + response);
 }
 
-void bluetoothCallback(esp_spp_cb_event_t event, esp_spp_cb_param_t *param) {
-  if (event == ESP_SPP_SRV_OPEN_EVT) {
-    bluetooth_connected = true;
-    current_message = "Bluetooth接続しました";
-    avatar.setSpeechText(current_message.c_str());
-    M5_LOGI("Bluetooth connected");
-  } else if (event == ESP_SPP_CLOSE_EVT) {
-    bluetooth_connected = false;
-    current_message = "Bluetooth切断されました";
-    avatar.setSpeechText(current_message.c_str());
-    M5_LOGI("Bluetooth disconnected");
-  }
-}
-
-// ------------------------
-// 初期化とメイン処理
-void setupWiFi() {
-  current_message = "WiFi初期化中...";
-  avatar.setSpeechText(current_message.c_str());
-  
-  Serial.println("Creating WiFiManager...");
-  wifi_manager = new WiFiManager(&comm_config);
-  Serial.println("WiFiManager created");
-  
-  Serial.println("Starting WiFi begin...");
-  if (wifi_manager->begin()) {
-    current_message = "WiFi接続成功: " + wifi_manager->getCurrentSSID();
-    M5_LOGI("WiFi setup completed: %s", wifi_manager->getStatus().c_str());
-    Serial.println("WiFi connected successfully");
-  } else {
-    current_message = "WiFi接続失敗";
-    M5_LOGI("WiFi setup failed");
-    Serial.println("WiFi connection failed");
-  }
-  
-  avatar.setSpeechText(current_message.c_str());
-  Serial.println("setupWiFi completed");
-}
-
-void setupWebServer() {
-  server->on("/", HTTP_GET, handleRoot);
-  server->on("/api/message", HTTP_POST, handleMessage);
-  server->on("/api/expression", HTTP_POST, handleExpression);
-  server->on("/api/status", HTTP_GET, handleStatus);
-  
-  // WiFi管理API
-  server->on("/api/wifi/scan", HTTP_GET, handleWiFiScan);
-  server->on("/api/wifi/toggle", HTTP_POST, handleWiFiToggle);
-  server->on("/api/wifi/add", HTTP_POST, handleWiFiAdd);
-  server->on("/api/wifi/connect", HTTP_POST, handleWiFiConnect);
-  
-  server->enableCORS(true);
-  server->begin();
-  M5_LOGI("Web server started on port %d", comm_config.webserver_port);
-}
-
-void setupBluetooth() {
-  Serial.println("Starting Bluetooth initialization...");
-  if (!SerialBT.begin(comm_config.bluetooth_device_name.c_str())) {
-    M5_LOGE("Bluetooth initialization failed!");
-    Serial.println("Bluetooth init failed!");
-    return;
-  }
-  
-  Serial.println("Registering Bluetooth callback...");
-  SerialBT.register_callback(bluetoothCallback);
-  current_message = "Bluetooth待機中...";
-  avatar.setSpeechText(current_message.c_str());
-  M5_LOGI("Bluetooth initialized: %s", comm_config.bluetooth_device_name.c_str());
-  Serial.println("Bluetooth setup completed");
-}
-
-void setup() {
-  auto cfg = M5.config();
-  cfg.serial_baudrate = 115200;
-  M5.begin(cfg);
-  M5.setTouchButtonHeight(40);
-  M5.Log.setLogLevel(m5::log_target_display, ESP_LOG_NONE);
-  M5.Log.setLogLevel(m5::log_target_serial, ESP_LOG_INFO);
-  M5.Log.setLogLevel(m5::log_target_display, ESP_LOG_NONE);
-  M5_LOGI("Stack-chan Communication Edition Started");
-  
-  // SDカード初期化
-  M5.Display.setCursor(10, 110);
-  M5.Display.print("Step 5: SD init...");
-  if (SD.begin(GPIO_NUM_4, SPI, 25000000)) {
-    M5.Display.setCursor(10, 130);
-    M5.Display.print("Step 6: SD OK");
-  } else {
-    M5.Display.setCursor(10, 130);
-    M5.Display.print("Step 6: SD SKIP");
-  }
-  delay(500);
-  
-  // 設定ファイル読み込み
-  M5.Display.setCursor(10, 150);
-  M5.Display.print("Step 7: Config SKIP");
-  // StackchanSystemConfig is disabled in this simplified build
-  // Configuration uses default CommunicationConfig values
-  M5.Display.setCursor(10, 170);
-  M5.Display.print("Step 8: WebServer obj...");
-  
-  // Webサーバーポート設定
-  server = new WebServer(comm_config.webserver_port);
-  M5.Display.setCursor(10, 190);
-  M5.Display.print("Step 9: WebServer OK");
-  
-  // Avatar初期化
-  avatar.init();
-  
-  // 段階的初期化メッセージ（デバッグ用）
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setTextSize(1);
-  M5.Display.setTextColor(TFT_GREEN);
-  M5.Display.setCursor(10, 10);
-  M5.Display.print("Stack-chan Init");
-  M5.Display.setCursor(10, 30);
-  M5.Display.print("Step 1: Display OK");
-  delay(1000);
-  
-  // カラーパレット設定（白黒反転修正）
-  M5.Display.setCursor(10, 50);
-  M5.Display.print("Step 2: ColorPalette...");
-  cps[0] = new ColorPalette();
-  cps[0]->set(COLOR_PRIMARY, TFT_WHITE);      // 文字色を白に
-  cps[0]->set(COLOR_BACKGROUND, TFT_BLACK);   // 背景色を黒に
-  avatar.setColorPalette(*cps[0]);
-  // Avatar初期化（簡素化）
-  M5.Display.setCursor(10, 70);
-  M5.Display.print("Step 3: Avatar basic...");
-  delay(100);
-  
-  // 最小限のAvatar初期化
-  try {
-    avatar.init();
-    M5.Display.setCursor(10, 90);
-    M5.Display.print("Step 4: Avatar OK");
-  } catch (...) {
-    M5.Display.setCursor(10, 90);
-    M5.Display.print("Step 4: Avatar SKIP");
-  }
-  
-  // バッテリーアイコン設定
-  M5.Display.fillScreen(TFT_BLACK);
-  M5.Display.setCursor(10, 10);
-  M5.Display.print("Step 11: Battery...");
-  if (M5.getBoard() != m5::board_t::board_M5Stack) {
-    avatar.setBatteryIcon(true);
-  }
-  M5.Display.setCursor(10, 30);
-  M5.Display.print("Step 12: Battery OK");
-  
-  M5.Display.setCursor(10, 50);
-  M5.Display.print("Step 13: Speech test...");
-  current_message = "システム初期化中...";
-  avatar.setSpeechText(current_message.c_str());
-  M5.Display.setCursor(10, 70);
-  M5.Display.print("Step 14: Speech OK");
-  delay(1000);
-  
-  // WiFi設定
-  M5.Display.setCursor(10, 90);
-  M5.Display.print("Step 15: WiFi setup...");
-  setupWiFi();
-  M5.Display.setCursor(10, 110);
-  M5.Display.print("Step 16: WiFi done");
-  delay(1000);
-  
-  // WebServer設定
-  M5.Display.setCursor(10, 130);
-  M5.Display.print("Step 17: WebServer...");
-  setupWebServer();
-  M5.Display.setCursor(10, 150);
-  M5.Display.print("Step 18: WebServer OK");
-  
-  // Bluetooth設定
-  M5.Display.setCursor(10, 170);
-  M5.Display.print("Step 19: Bluetooth...");
-  setupBluetooth();
-  M5.Display.setCursor(10, 190);
-  M5.Display.print("Step 20: BT done");
-  
-  current_message = "準備完了です！";
-  avatar.setSpeechText(current_message.c_str());
-  M5.Display.setCursor(10, 210);
-  M5.Display.print("All systems ready!");
-  
-  last_display_update = millis();
-  
-  M5_LOGI("Setup completed");
-}
-
-void loop() {
-  static unsigned long loop_counter = 0;
-  static unsigned long last_debug_print = 0;
-  
-  // デバッグ用：5秒ごとにループカウンターを表示
-  if (millis() - last_debug_print > 5000) {
-    Serial.printf("Loop counter: %lu, Free heap: %u\n", loop_counter, ESP.getFreeHeap());
-    last_debug_print = millis();
-  }
-  loop_counter++;
-  
-  M5.update();
-  
-  // Webサーバー処理
-  server->handleClient();
-  
-  // Bluetooth通信処理
-  handleBluetoothData();
-  
-  // ボタン処理
-  if (M5.BtnA.wasPressed()) {
-    // モード切替
-    switch (current_mode) {
-      case WIFI_MODE:
-        current_mode = BLUETOOTH_MODE;
-        current_message = "Bluetoothモード";
-        break;
-      case BLUETOOTH_MODE:
-        current_mode = BOTH_MODE;
-        current_message = "両方モード";
-        break;
-      case BOTH_MODE:
-        current_mode = WIFI_MODE;
-        current_message = "WiFiモード";
-        break;
-    }
-    avatar.setSpeechText(current_message.c_str());
-    M5_LOGI("Mode changed to: %d", current_mode);
-  }
-  
-  if (M5.BtnB.wasPressed()) {
-    // ステータス表示
-    String status = wifi_manager->getStatus();
-    current_message = status;
-    avatar.setSpeechText(current_message.c_str());
-  }
-  
-  if (M5.BtnC.wasPressed()) {
-    // 表情をランダムに変更
-    Expression expressions[] = {Expression::Neutral, Expression::Happy, 
-                               Expression::Sleepy, Expression::Doubt};
-    int randomIndex = random(0, 4);
-    avatar.setExpression(expressions[randomIndex]);
-    current_message = "表情を変更しました！";
-    avatar.setSpeechText(current_message.c_str());
-  }
-  
-  // 定期的な表示更新
-  if ((millis() - last_display_update) > display_update_interval) {
-    // WiFi接続状態チェック
-    wifi_manager->reconnect();
-    
-    // バッテリー状態更新
-    if (M5.getBoard() != m5::board_t::board_M5Stack) {
-      avatar.setBatteryStatus(M5.Power.isCharging(), M5.Power.getBatteryLevel());
-    }
-    
-    // ランダムメッセージ表示（カスタム日本語フォント使用）
-    if (comm_config.lyrics.size() > 0) {
-      const String& message = comm_config.lyrics[lyrics_idx++ % comm_config.lyrics.size()];
-      avatar.setSpeechText(message.c_str());
-      
-      // 画面下部にシンプル表示（英語フォント使用）
-      M5.Display.fillRect(0, M5.Display.height() - 20, M5.Display.width(), 20, TFT_BLACK);
-      M5.Display.setFont(&fonts::Font0);
-      M5.Display.setTextSize(1);
-      M5.Display.setTextColor(TFT_WHITE);
-      M5.Display.setCursor(5, M5.Display.height() - 18);
-      M5.Display.print(message);
-    }
-    
-    // 口の動き
-    avatar.setMouthOpenRatio(0.5);
-    delay(100);
-    avatar.setMouthOpenRatio(0.0);
-    
-    last_display_update = millis();
-  }
-  
-  delay(50); // CPU負荷軽減
+void handle404() {
+  server.send(404, "text/plain", "404 Not Found - Stack-chan WebUI");
 }
