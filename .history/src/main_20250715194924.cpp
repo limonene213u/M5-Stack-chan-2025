@@ -41,12 +41,16 @@ struct VoicePreset {
 };
 
 // 音声プリセット設定（テキスト、音声ファイル、表情のマッピング）
-// メモリ節約のため一時的に削減
 const VoicePreset voice_presets[] = {
-  {"スタックちゃん", "001.wav", 1}, //Happy 
-  {"おはよう", "ohayou.wav", 1},   // Happy
-  {"こんにちは", "konnichiwa.wav", 0}, // Neutral
-  {"おやすみ", "oyasumi.wav", 2},   // Sleepy
+  {"スタックちゃんです！", "001.wav", 1}, //Happy 
+  {"おはよう！", "ohayou.wav", 1},        // Happy
+  {"こんにちは", "konnichiwa.wav", 0},    // Neutral
+  {"おやすみ", "oyasumi.wav", 2},         // Sleepy
+  {"ありがとう", "arigatou.wav", 1},      // Happy
+  {"がんばって", "ganbatte.wav", 1},      // Happy
+  {"うーん...", "uun.wav", 3},           // Doubt
+  {"わかった！", "wakatta.wav", 1},       // Happy
+  {"だめだよ", "dame.wav", 3},           // Doubt
   {nullptr, nullptr, 0}  // 終端マーカー
 };
 
@@ -68,22 +72,15 @@ void handle404();
 
 void setup() {
   // M5Stack基本初期化
-  Serial.begin(115200);
-  delay(100); // シリアル安定化
-  Serial.println("=== Stack-chan Avatar + WiFi + WebServer Edition ===");
-  Serial.println("setup() 開始");
-  Serial.printf("起動時メモリ: %d bytes\n", ESP.getFreeHeap());
-  
-  Serial.println("M5.config() 設定中...");
   auto cfg = M5.config();
-  Serial.println("M5.begin() 実行中...");
   M5.begin(cfg);
-  Serial.println("M5Stack初期化完了");
-  Serial.printf("M5初期化後メモリ: %d bytes\n", ESP.getFreeHeap());
   
-  // SDカード初期化（一時的に無効化してテスト）
-  Serial.println("SDカード初期化スキップ（デバッグ用）");
-  sd_initialized = false; // initializeSD();
+  Serial.begin(115200);
+  Serial.println("=== Stack-chan Avatar + WiFi + WebServer Edition ===");
+  
+  // SDカード初期化
+  Serial.println("SDカード初期化開始");
+  sd_initialized = initializeSD();
   
   // 初期表示
   M5.Display.fillScreen(TFT_BLACK);

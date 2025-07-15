@@ -81,9 +81,9 @@ void setup() {
   Serial.println("M5Stack初期化完了");
   Serial.printf("M5初期化後メモリ: %d bytes\n", ESP.getFreeHeap());
   
-  // SDカード初期化（一時的に無効化してテスト）
-  Serial.println("SDカード初期化スキップ（デバッグ用）");
-  sd_initialized = false; // initializeSD();
+  // SDカード初期化
+  Serial.println("SDカード初期化開始");
+  sd_initialized = initializeSD();
   
   // 初期表示
   M5.Display.fillScreen(TFT_BLACK);
