@@ -377,7 +377,10 @@ void handleRoot() {
   html += "  if(!speech) speech = ''; ";
   html += "  fetch('/api/set?expression=' + expr + '&speech=' + encodeURIComponent(speech))";
   html += "    .then(response => response.text())";
-  html += "    .then(data => showStatus('設定完了'))";
+  html += "    .then(data => {";
+  html += "      showStatus('設定完了');";
+  html += "      document.getElementById('speechText').value = '';";
+  html += "    })";
   html += "    .catch(error => showStatus('エラーが発生しました', true));";
   html += "}";
   html += "function changeExpression(){fetch('/api/expression').then(()=>showStatus('表情変更')).catch(()=>showStatus('エラー', true));}";
