@@ -347,3 +347,5 @@ ESP32WebServer server(80);           // Alternative server library
 ### **Long-term Vision**
 
 Transform current communication-focused stack-chan into full **conversational AI robot** following the proven ChatGPT implementation pattern while maintaining stability improvements.
+
+# 絵文字禁止
