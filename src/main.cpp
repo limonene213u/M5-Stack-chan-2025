@@ -336,7 +336,7 @@ void handleRoot() {
   html += "<option value='2'>眠い (Sleepy)</option>";
   html += "<option value='3'>困った (Doubt)</option>";
   html += "</select>";
-  html += "<input type='text' id='speechText' placeholder='セリフを入力してください...' maxlength='50'>";
+  html += "<input type='text' id='speechText' placeholder='セリフを入力してください...' maxlength='50' onkeypress='if(event.key===\"Enter\") setExpressionAndSpeech()'>";
   html += "<button onclick='setExpressionAndSpeech()'>表情とセリフを設定</button>";
   html += "</div>";
   
