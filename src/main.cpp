@@ -41,16 +41,12 @@ struct VoicePreset {
 };
 
 // 音声プリセット設定（テキスト、音声ファイル、表情のマッピング）
+// メモリ節約のため一時的に削減
 const VoicePreset voice_presets[] = {
-  {"スタックちゃんです！", "001.wav", 1}, //Happy 
-  {"おはよう！", "ohayou.wav", 1},        // Happy
-  {"こんにちは", "konnichiwa.wav", 0},    // Neutral
-  {"おやすみ", "oyasumi.wav", 2},         // Sleepy
-  {"ありがとう", "arigatou.wav", 1},      // Happy
-  {"がんばって", "ganbatte.wav", 1},      // Happy
-  {"うーん...", "uun.wav", 3},           // Doubt
-  {"わかった！", "wakatta.wav", 1},       // Happy
-  {"だめだよ", "dame.wav", 3},           // Doubt
+  {"スタックちゃん", "001.wav", 1}, //Happy 
+  {"おはよう", "ohayou.wav", 1},   // Happy
+  {"こんにちは", "konnichiwa.wav", 0}, // Neutral
+  {"おやすみ", "oyasumi.wav", 2},   // Sleepy
   {nullptr, nullptr, 0}  // 終端マーカー
 };
 
@@ -72,15 +68,22 @@ void handle404();
 
 void setup() {
   // M5Stack基本初期化
-  auto cfg = M5.config();
-  M5.begin(cfg);
-  
   Serial.begin(115200);
+  delay(100); // シリアル安定化
   Serial.println("=== Stack-chan Avatar + WiFi + WebServer Edition ===");
+  Serial.println("setup() 開始");
+  Serial.printf("起動時メモリ: %d bytes\n", ESP.getFreeHeap());
   
-  // SDカード初期化
-  Serial.println("SDカード初期化開始");
-  sd_initialized = initializeSD();
+  Serial.println("M5.config() 設定中...");
+  auto cfg = M5.config();
+  Serial.println("M5.begin() 実行中...");
+  M5.begin(cfg);
+  Serial.println("M5Stack初期化完了");
+  Serial.printf("M5初期化後メモリ: %d bytes\n", ESP.getFreeHeap());
+  
+  // SDカード初期化（一時的に無効化してテスト）
+  Serial.println("SDカード初期化スキップ（デバッグ用）");
+  sd_initialized = false; // initializeSD();
   
   // 初期表示
   M5.Display.fillScreen(TFT_BLACK);
@@ -132,12 +135,18 @@ void setup() {
     Serial.printf("Free heap after Avatar: %d bytes\n", ESP.getFreeHeap());
     
   } catch (...) {
-    Serial.println("Avatar初期化失敗");
+    Serial.println("=== Avatar初期化で例外が発生しました ===");
+    Serial.printf("Free heap at error: %d bytes\n", ESP.getFreeHeap());
+    Serial.println("Exception caught during Avatar initialization");
     avatar_initialized = false;
     
     // フォールバック表示
     M5.Display.fillScreen(TFT_RED);
     M5.Display.setCursor(10, 10);
+    M5.Display.println("Avatar Error");
+    M5.Display.println("Basic Mode");
+    M5.Display.println("Check Serial");
+    Serial.println("Avatar初期化失敗 - フォールバックモードで継続");
     M5.Display.println("Avatar Error");
     M5.Display.println("Basic Mode");
   }
