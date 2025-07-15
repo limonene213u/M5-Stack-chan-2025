@@ -27,6 +27,11 @@ String current_message = "スタックちゃん";
 unsigned long last_expression_change = 0;
 int current_expression = 0;
 
+// セリフ自動制御
+unsigned long last_speech_time = 0;
+bool speech_set_by_user = false;
+bool random_speech_enabled = false;
+
 // 関数プロトタイプ宣言
 bool connectToWiFi();
 void handleRoot();
@@ -34,6 +39,9 @@ void handleApiExpression();
 void handleApiColor();
 void handleApiSet();
 void handle404();
+void checkRandomSpeechConfig();
+String getRandomSpeech();
+void updateSpeechLoop();
 
 void setup() {
   // M5Stack基本初期化
@@ -139,6 +147,9 @@ void setup() {
   }
   
   Serial.println("初期化完了 - Avatar + WiFi + WebServer モード");
+  
+  // ランダムセリフ設定確認
+  checkRandomSpeechConfig();
 }
 
 void loop() {
@@ -202,6 +213,9 @@ void loop() {
       avatar.setExpression(Expression::Neutral);
       last_expression_change = millis();
     }
+    
+    // セリフ自動ループ処理
+    updateSpeechLoop();
     
   } else {
     // Avatar失敗時の基本操作
@@ -480,6 +494,10 @@ void handleApiSet() {
     current_message = speech;
     avatar.setSpeechText(speech.c_str());
     
+    // ユーザーがセリフを設定したことを記録
+    speech_set_by_user = (speech.length() > 0);
+    last_speech_time = millis();
+    
     if (response.length() > 0) response += ", ";
     response += "セリフ: \"" + speech + "\"";
   }
@@ -494,4 +512,74 @@ void handleApiSet() {
 
 void handle404() {
   server.send(404, "text/plain", "404 Not Found - Stack-chan WebUI");
+}
+
+// ランダムセリフ設定確認
+void checkRandomSpeechConfig() {
+  // random_speeches配列の最初の要素をチェック
+  random_speech_enabled = (random_speeches[0] != nullptr);
+  
+  if (random_speech_enabled) {
+    Serial.println("ランダムセリフ機能: 有効");
+    int count = 0;
+    while (random_speeches[count] != nullptr) count++;
+    Serial.printf("登録されたセリフ数: %d個\n", count);
+  } else {
+    Serial.println("ランダムセリフ機能: 無効（設定なし）");
+  }
+}
+
+// ランダムセリフ取得
+String getRandomSpeech() {
+  if (!random_speech_enabled) return "";
+  
+  // 配列のサイズを数える
+  int count = 0;
+  while (random_speeches[count] != nullptr) count++;
+  
+  if (count == 0) return "";
+  
+  // ランダムに選択
+  int index = random(count);
+  return String(random_speeches[index]);
+}
+
+// セリフ自動ループ更新
+void updateSpeechLoop() {
+  if (!avatar_initialized) return;
+  
+  unsigned long current_time = millis();
+  
+  // ユーザーがセリフを設定してから30秒経過した場合
+  if (speech_set_by_user && 
+      (current_time - last_speech_time) > SPEECH_AUTO_CLEAR_TIME) {
+    
+    Serial.println("セリフ自動クリア（30秒経過）");
+    speech_set_by_user = false;
+    
+    // ランダムセリフが有効な場合は選択、無効な場合は標準メッセージ
+    if (random_speech_enabled) {
+      current_message = getRandomSpeech();
+      Serial.println("ランダムセリフ開始: " + current_message);
+    } else {
+      current_message = "スタックちゃん";
+      Serial.println("標準メッセージに戻る");
+    }
+    
+    avatar.setSpeechText(current_message.c_str());
+    last_speech_time = current_time;
+  }
+  
+  // ランダムセリフが有効で、ユーザー設定でない場合の自動ループ
+  if (random_speech_enabled && !speech_set_by_user &&
+      (current_time - last_speech_time) > SPEECH_AUTO_CLEAR_TIME) {
+    
+    String new_speech = getRandomSpeech();
+    if (new_speech != current_message) {  // 同じセリフの連続を避ける
+      current_message = new_speech;
+      avatar.setSpeechText(current_message.c_str());
+      Serial.println("ランダムセリフ変更: " + current_message);
+    }
+    last_speech_time = current_time;
+  }
 }
