@@ -20,7 +20,7 @@ struct WiFiCredentials {
 const WiFiCredentials wifi_networks[] = {
   {"cisco-aktk-6", "ti463dhevu57n", 1},
   {"cisco-aktk", "ti463dhevu57n", 2}, 
-  {"ROG", "ti463dhevu57n", 3},
+  {"りもiPhone", "ti463dhevu57n", 3},
   {nullptr, nullptr, 0}  // 終端マーカー
 };
 

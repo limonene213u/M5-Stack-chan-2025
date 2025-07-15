@@ -18,9 +18,9 @@ struct WiFiCredentials {
 // WiFi設定一覧（優先順位順）
 // ここを編集してWiFi設定を変更してください
 const WiFiCredentials wifi_networks[] = {
-  {"cisco-aktk-6", "ti463dhevu57n", 1},
-  {"cisco-aktk", "ti463dhevu57n", 2}, 
-  {"ROG", "ti463dhevu57n", 3},
+  {"your_home_wifi", "your_password", 1},
+  {"your_mobile_hotspot", "mobile_password", 2}, 
+  {"guest_network", "guest_pass", 3},
   {nullptr, nullptr, 0}  // 終端マーカー
 };
 

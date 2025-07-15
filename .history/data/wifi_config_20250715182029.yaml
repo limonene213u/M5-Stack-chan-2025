@@ -2,16 +2,16 @@
 # 複数のWiFiネットワークを優先順位付きで設定可能
 
 wifi_networks:
-  - ssid: "cisco-aktk-6"
-    password: "ti463dhevu57n"
+  - ssid: "your_home_wifi"
+    password: "your_password"
     priority: 1
     
-  - ssid: "cisco-aktk"
-    password: "ti463dhevu57n"  
+  - ssid: "your_mobile_hotspot"
+    password: "mobile_password"  
     priority: 2
     
-  - ssid: "りもiPhone"
-    password: "ti463dhevu57n"
+  - ssid: "guest_network"
+    password: "guest_pass"
     priority: 3
 
 # WebServer設定

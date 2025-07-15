@@ -9,7 +9,6 @@
 #include <WebServer.h>
 #include <SD.h>
 #include <FS.h>
-#include <driver/i2s.h>
 #include "simple_wifi_config.h"
 
 using namespace m5avatar;
@@ -33,37 +32,13 @@ int current_expression = 0;
 // SDカード関連
 bool sd_initialized = false;
 
-// 音声プリセット構造体
-struct VoicePreset {
-  const char* text;
-  const char* voice_file;
-  int expression;
-};
-
-// 音声プリセット設定（テキスト、音声ファイル、表情のマッピング）
-const VoicePreset voice_presets[] = {
-  {"スタックちゃんです！", "001.wav", 1}, //Happy 
-  {"おはよう！", "ohayou.wav", 1},        // Happy
-  {"こんにちは", "konnichiwa.wav", 0},    // Neutral
-  {"おやすみ", "oyasumi.wav", 2},         // Sleepy
-  {"ありがとう", "arigatou.wav", 1},      // Happy
-  {"がんばって", "ganbatte.wav", 1},      // Happy
-  {"うーん...", "uun.wav", 3},           // Doubt
-  {"わかった！", "wakatta.wav", 1},       // Happy
-  {"だめだよ", "dame.wav", 3},           // Doubt
-  {nullptr, nullptr, 0}  // 終端マーカー
-};
-
 // 関数プロトタイプ宣言
 bool connectToWiFi();
 bool initializeSD();
-bool initializeAudio();
-bool playVoiceFile(const char* filename);
 void handleRoot();
 void handleApiExpression();
 void handleApiColor();
 void handleApiSet();
-void handleApiPreset();
 void handleFileUpload();
 void handleFileUploadPost();
 void handleFileList();
@@ -89,47 +64,28 @@ void setup() {
   M5.Display.println("Avatar初期化中...");
   
   Serial.println("Avatar初期化開始");
-  Serial.printf("Free heap before Avatar: %d bytes\n", ESP.getFreeHeap());
   
   // Avatar初期化（エラーハンドリング付き）
   try {
-    Serial.println("ColorPalette作成開始");
     // ColorPalette作成
     cps[0] = new ColorPalette();
     cps[1] = new ColorPalette();
-    Serial.println("ColorPalette作成完了");
-    
-    Serial.println("ColorPalette設定開始");
     cps[1]->set(COLOR_PRIMARY, TFT_YELLOW);
     cps[1]->set(COLOR_BACKGROUND, TFT_BLUE);
-    Serial.println("ColorPalette設定完了");
     
-    Serial.println("Avatar.init()実行開始");
     // Avatar基本初期化
     avatar.init();
-    Serial.println("Avatar.init()実行完了");
-    
-    Serial.println("ColorPalette適用開始");
     avatar.setColorPalette(*cps[0]);
-    Serial.println("ColorPalette適用完了");
     
-    Serial.println("フォント設定開始");
     // 日本語フォント設定（小さめのフォントに変更）
     avatar.setSpeechFont(&fonts::efontJA_12);
-    Serial.println("フォント設定完了");
     
-    Serial.println("初期表情設定開始");
     // 初期表情と発話設定
     avatar.setExpression(Expression::Neutral);
-    Serial.println("初期表情設定完了");
-    
-    Serial.println("初期セリフ設定開始");
     avatar.setSpeechText(current_message.c_str());
-    Serial.println("初期セリフ設定完了");
     
     avatar_initialized = true;
     Serial.println("Avatar初期化成功");
-    Serial.printf("Free heap after Avatar: %d bytes\n", ESP.getFreeHeap());
     
   } catch (...) {
     Serial.println("Avatar初期化失敗");
@@ -158,7 +114,6 @@ void setup() {
     server.on("/api/expression", HTTP_GET, handleApiExpression);
     server.on("/api/color", HTTP_GET, handleApiColor);
     server.on("/api/set", HTTP_GET, handleApiSet);
-    server.on("/api/preset", HTTP_GET, handleApiPreset);
     
     // ファイル関連ルート
     server.on("/upload", HTTP_GET, handleFileUpload);
@@ -400,21 +355,6 @@ void handleRoot() {
   }
   html += "</div>";
   
-  if (sd_initialized) {
-    html += "<div class='expression-control'>";
-    html += "<h3>音声プリセット</h3>";
-    html += "<p>プリセットされた音声付きセリフを再生できます</p>";
-    
-    // プリセット一覧表示
-    int preset_count = 0;
-    for (int i = 0; voice_presets[i].text != nullptr; i++) {
-      preset_count++;
-      html += "<button onclick='playPreset(" + String(i) + ")'>" + String(voice_presets[i].text) + "</button> ";
-      if (preset_count % 3 == 0) html += "<br>"; // 3つずつ改行
-    }
-    html += "</div>";
-  }
-  
   html += "<h3>System Status</h3>";
   html += "<p>Free Memory: " + String(ESP.getFreeHeap() / 1024) + " KB</p>";
   html += "<p>Uptime: " + String(millis() / 1000) + " seconds</p>";
@@ -437,12 +377,6 @@ void handleRoot() {
   html += "function changeExpression(){fetch('/api/expression').then(()=>alert('表情変更')).catch(()=>alert('エラー'));}";
   html += "function changeColor(){fetch('/api/color').then(()=>alert('色変更')).catch(()=>alert('エラー'));}";
   html += "function clearSpeech(){fetch('/api/set?speech=').then(()=>alert('セリフクリア')).catch(()=>alert('エラー'));}";
-  html += "function playPreset(index){";
-  html += "  fetch('/api/preset?index=' + index)";
-  html += "    .then(response => response.text())";
-  html += "    .then(data => console.log('プリセット再生: ' + data))";
-  html += "    .catch(error => alert('エラー: ' + error));";
-  html += "}";
   html += "</script>";
   html += "</body></html>";
   
@@ -558,15 +492,6 @@ bool initializeSD() {
       Serial.println("audioディレクトリ作成成功");
     } else {
       Serial.println("audioディレクトリ作成失敗");
-    }
-  }
-  
-  // voiceディレクトリを作成（プリセット音声用）
-  if (!SD.exists("/voice")) {
-    if (SD.mkdir("/voice")) {
-      Serial.println("voiceディレクトリ作成成功");
-    } else {
-      Serial.println("voiceディレクトリ作成失敗");
     }
   }
   
@@ -758,101 +683,6 @@ void handleFileDelete() {
   } else {
     server.send(404, "text/plain", "ファイルが見つかりません");
   }
-}
-
-// 音声再生関数（シンプル版）
-bool playVoiceFile(const char* filename) {
-  if (!sd_initialized) {
-    Serial.println("SDカードが初期化されていません");
-    return false;
-  }
-  
-  String filepath = "/voice/" + String(filename);
-  
-  if (!SD.exists(filepath)) {
-    Serial.printf("音声ファイルが見つかりません: %s\n", filepath.c_str());
-    return false;
-  }
-  
-  // M5Unified のスピーカー機能を使用
-  File audioFile = SD.open(filepath);
-  if (!audioFile) {
-    Serial.printf("ファイルオープン失敗: %s\n", filepath.c_str());
-    return false;
-  }
-  
-  Serial.printf("音声再生開始: %s\n", filepath.c_str());
-  
-  // ファイルサイズを確認
-  size_t fileSize = audioFile.size();
-  Serial.printf("ファイルサイズ: %d bytes\n", fileSize);
-  
-  // 簡易WAVファイル再生（M5Unified音声機能を使用）
-  // 注：実際の実装では音声フォーマットの解析が必要
-  audioFile.close();
-  
-  // M5のスピーカーでビープ音を鳴らす（プレースホルダー）
-  M5.Speaker.tone(1000, 200);
-  delay(250);
-  M5.Speaker.tone(800, 200);
-  delay(250);
-  
-  Serial.println("音声再生完了（簡易版）");
-  return true;
-}
-
-// プリセット音声再生APIハンドラー
-void handleApiPreset() {
-  if (!avatar_initialized) {
-    server.send(500, "text/plain", "Avatar not initialized");
-    return;
-  }
-  
-  if (!server.hasArg("index")) {
-    server.send(400, "text/plain", "プリセットインデックスが指定されていません");
-    return;
-  }
-  
-  int index = server.arg("index").toInt();
-  
-  // インデックスの有効性をチェック
-  int preset_count = 0;
-  while (voice_presets[preset_count].text != nullptr) {
-    preset_count++;
-  }
-  
-  if (index < 0 || index >= preset_count) {
-    server.send(400, "text/plain", "無効なプリセットインデックス");
-    return;
-  }
-  
-  const VoicePreset& preset = voice_presets[index];
-  
-  // 表情を設定
-  current_expression = preset.expression;
-  switch (preset.expression) {
-    case 0: avatar.setExpression(Expression::Neutral); break;
-    case 1: avatar.setExpression(Expression::Happy); break;
-    case 2: avatar.setExpression(Expression::Sleepy); break;
-    case 3: avatar.setExpression(Expression::Doubt); break;
-  }
-  
-  // セリフを表示
-  current_message = String(preset.text);
-  avatar.setSpeechText(current_message.c_str());
-  
-  // 音声ファイルを再生
-  bool voice_played = playVoiceFile(preset.voice_file);
-  
-  String response = "プリセット再生: " + String(preset.text);
-  if (voice_played) {
-    response += " (音声再生成功)";
-  } else {
-    response += " (音声ファイルなし)";
-  }
-  
-  server.send(200, "text/plain", response);
-  Serial.println("API: " + response);
 }
 
 void handle404() {
