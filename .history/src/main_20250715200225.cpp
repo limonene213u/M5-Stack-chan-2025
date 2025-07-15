@@ -59,53 +59,16 @@ void setup() {
   Serial.println("Avatar初期化開始");
   Serial.printf("Free heap before Avatar: %d bytes\n", ESP.getFreeHeap());
   
-  // Avatar初期化（シンプル構成）
-  try {
-    Serial.println("ColorPalette作成開始");
-    cps[0] = new ColorPalette();
-    cps[1] = new ColorPalette();
-    Serial.println("ColorPalette作成完了");
-    
-    Serial.println("ColorPalette設定開始");
-    cps[1]->set(COLOR_PRIMARY, TFT_YELLOW);
-    cps[1]->set(COLOR_BACKGROUND, TFT_BLUE);
-    Serial.println("ColorPalette設定完了");
-    
-    Serial.println("Avatar.init()実行開始");
-    avatar.init();
-    Serial.println("Avatar.init()実行完了");
-    
-    Serial.println("ColorPalette適用開始");
-    avatar.setColorPalette(*cps[0]);
-    Serial.println("ColorPalette適用完了");
-    
-    Serial.println("フォント設定開始");
-    avatar.setSpeechFont(&fonts::efontJA_12);
-    Serial.println("フォント設定完了");
-    
-    Serial.println("初期表情設定開始");
-    avatar.setExpression(Expression::Neutral);
-    Serial.println("初期表情設定完了");
-    
-    Serial.println("初期セリフ設定開始");
-    avatar.setSpeechText(current_message.c_str());
-    Serial.println("初期セリフ設定完了");
-    
-    avatar_initialized = true;
-    Serial.println("Avatar初期化成功");
-    Serial.printf("Free heap after Avatar: %d bytes\n", ESP.getFreeHeap());
-    
-  } catch (...) {
-    Serial.println("Avatar初期化で例外が発生しました");
-    avatar_initialized = false;
-    
-    // フォールバック表示
-    M5.Display.fillScreen(TFT_RED);
-    M5.Display.setCursor(10, 10);
-    M5.Display.println("Avatar Error");
-    M5.Display.println("Basic Mode");
-    Serial.println("Avatar初期化失敗 - フォールバックモードで継続");
-  }
+  // Avatar初期化をテスト無効化
+  Serial.println("Avatar初期化スキップ - テストモード");
+  M5.Display.fillScreen(TFT_GREEN);
+  M5.Display.setTextColor(TFT_BLACK);
+  M5.Display.setCursor(10, 10);
+  M5.Display.println("Avatar Disabled");
+  M5.Display.println("Test Mode");
+  M5.Display.println("Check Serial");
+  
+  avatar_initialized = false;  // Avatarは使用しない
   
   // WiFi接続開始
   Serial.println("WiFi接続開始");
