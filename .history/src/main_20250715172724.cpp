@@ -74,107 +74,108 @@ void loop() {
   M5.update();
   
   if (avatar_initialized) {
-    // Button A: 表情変更（4種類をサイクル）
+    // Button A: 表情変更
     if (M5.BtnA.wasPressed()) {
-      Serial.println("🔄 表情変更");
+      Serial.println("Button A pressed - 表情変更");
       current_expression = (current_expression + 1) % 4;
       
       switch (current_expression) {
         case 0:
           avatar.setExpression(Expression::Neutral);
-          current_message = "普通";
+          current_message = "普通の顔";
           break;
         case 1:
           avatar.setExpression(Expression::Happy);
-          current_message = "嬉しい";
+          current_message = "嬉しい顔";
           break;
         case 2:
           avatar.setExpression(Expression::Sleepy);
-          current_message = "眠い";
+          current_message = "眠そうな顔";
           break;
         case 3:
           avatar.setExpression(Expression::Doubt);
-          current_message = "困った";
+          current_message = "困った顔";
           break;
       }
       
       avatar.setSpeechText(current_message.c_str());
-      Serial.printf("表情: %s\n", current_message.c_str());
+      Serial.printf("表情変更: %s\n", current_message.c_str());
     }
     
-    // Button B: 色変更（標準⇔青）
+    // Button B: 色変更
     if (M5.BtnB.wasPressed()) {
-      Serial.println("🎨 色変更");
+      Serial.println("Button B pressed - 色変更");
       static bool use_alt_color = false;
       use_alt_color = !use_alt_color;
       
       if (use_alt_color) {
         avatar.setColorPalette(*cps[1]);
-        current_message = "青色";
+        current_message = "色変更：青";
       } else {
         avatar.setColorPalette(*cps[0]);
-        current_message = "標準色";
+        current_message = "色変更：標準";
       }
       
       avatar.setSpeechText(current_message.c_str());
     }
     
-    // Button C: 話すアニメーション
+    // Button C: 口の動き
     if (M5.BtnC.wasPressed()) {
-      Serial.println("💬 話すアニメーション");
-      current_message = "話してます";
+      Serial.println("Button C pressed - 口の動き");
+      current_message = "話しています";
       avatar.setSpeechText(current_message.c_str());
       
-      // 口の動きアニメーション（最小限）
-      for (int i = 0; i < 3; i++) {
-        avatar.setMouthOpenRatio(0.7);
-        delay(150);
-        avatar.setMouthOpenRatio(0.0);
-        delay(150);
+      // 簡単な口の動きアニメーション
+      for (int i = 0; i < 5; i++) {
+        avatar.setMouthOpenRatio(0.8);
+        delay(200);
+        avatar.setMouthOpenRatio(0.2);
+        delay(200);
       }
+      avatar.setMouthOpenRatio(0.0);
       
       current_message = "話し終わり";
       avatar.setSpeechText(current_message.c_str());
     }
     
-    // 自動まばたき（10秒ごと）
+    // 自動表情変更（10秒ごと）
     if (millis() - last_expression_change > 10000) {
       avatar.setExpression(Expression::Neutral);
       last_expression_change = millis();
     }
     
   } else {
-    // Avatar失敗時の基本操作
+    // Avatar無効時のフォールバック操作
     if (M5.BtnA.wasPressed()) {
       M5.Display.fillScreen(TFT_GREEN);
       M5.Display.setCursor(10, 10);
       M5.Display.println("Button A");
-      delay(500);
+      M5.Display.println("(No Avatar)");
     }
     
     if (M5.BtnB.wasPressed()) {
       M5.Display.fillScreen(TFT_BLUE);
       M5.Display.setCursor(10, 10);
       M5.Display.println("Button B");
-      delay(500);
+      M5.Display.println("(No Avatar)");
     }
     
     if (M5.BtnC.wasPressed()) {
       M5.Display.fillScreen(TFT_YELLOW);
       M5.Display.setCursor(10, 10);
       M5.Display.println("Button C");
-      delay(500);
+      M5.Display.println("(No Avatar)");
     }
   }
   
-  // 最小限のシステム監視（10秒ごと）
-  static unsigned long last_heartbeat = 0;
-  if (millis() - last_heartbeat > 10000) {
-    Serial.printf("💓 Avatar=%s, Memory=%dKB, Uptime=%lus\n", 
-                  avatar_initialized ? "OK" : "NG", 
+  // システム情報出力（5秒ごと）
+  static unsigned long last_print = 0;
+  if (millis() - last_print > 5000) {
+    Serial.printf("システム状態: Avatar=%s, フリーメモリ=%d KB, アップタイム=%lu秒\n", 
+                  avatar_initialized ? "有効" : "無効", 
                   ESP.getFreeHeap() / 1024, 
                   millis() / 1000);
-    last_heartbeat = millis();
+    last_print = millis();
   }
   
   delay(50);
