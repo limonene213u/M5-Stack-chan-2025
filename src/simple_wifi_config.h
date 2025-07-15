@@ -30,4 +30,21 @@ const char* HOSTNAME = "stackchan";
 const unsigned long CONNECTION_TIMEOUT = 10000;  // 10秒
 const unsigned long RETRY_INTERVAL = 5000;       // 5秒
 
+// セリフ自動ループ設定
+const unsigned long SPEECH_AUTO_CLEAR_TIME = 30000;  // 30秒でセリフクリア
+
+// ランダムセリフリスト（空の場合はループしない）
+const char* random_speeches[] = {
+  "こんにちは！",
+  "元気だよ～",
+  "今日はいい天気だね",
+  "何か話そうか？",
+  "楽しいな！",
+  "また会えて嬉しいよ",
+  nullptr  // 終端マーカー
+  
+  // ランダムループを無効にする場合は以下のようにコメントアウト:
+  // nullptr  // 終端マーカーのみ残す
+};
+
 #endif // SIMPLE_WIFI_CONFIG_H
