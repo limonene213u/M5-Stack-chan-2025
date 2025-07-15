@@ -1,28 +1,19 @@
 /*
- * Stack-chan 最小構成 Avatar + WiFi + WebServer
- * Avatar表示 + WiFi接続 + 簡単なWebUI
+ * Stack-chan 最小構成 Avatar専用版
+ * 不要な依存関係を完全に削除した純粋なAvatar表示
  */
 
 #include <M5Unified.h>
 #include <Avatar.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include "simple_wifi_config.h"
 
 using namespace m5avatar;
 
-// Avatar関連
+// Avatar関連のみ（WiFi等の不要な機能は完全削除）
 Avatar avatar;
 ColorPalette* cps[2];
 bool avatar_initialized = false;
 
-// WiFi & WebServer関連
-WebServer server(WEBSERVER_PORT);
-bool wifi_connected = false;
-String current_ip = "";
-unsigned long last_wifi_check = 0;
-
-// 表示制御
+// 表示制御のみ
 String current_message = "スタックちゃん";
 unsigned long last_expression_change = 0;
 int current_expression = 0;
