@@ -1,0 +1,26 @@
+# Stack-chan WiFi設定ファイル
+# 複数のWiFiネットワークを優先順位付きで設定可能
+
+wifi_networks:
+  - ssid: "your_home_wifi"
+    password: "your_password"
+    priority: 1
+    
+  - ssid: "your_mobile_hotspot"
+    password: "mobile_password"  
+    priority: 2
+    
+  - ssid: "guest_network"
+    password: "guest_pass"
+    priority: 3
+
+# WebServer設定
+webserver:
+  port: 80
+  title: "Stack-chan WebUI"
+  
+# システム設定
+system:
+  hostname: "stackchan"
+  connection_timeout: 10000  # ミリ秒
+  retry_interval: 5000       # ミリ秒

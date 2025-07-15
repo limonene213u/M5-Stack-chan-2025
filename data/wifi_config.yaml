@@ -1,0 +1,26 @@
+# Stack-chan WiFi設定ファイル
+# 複数のWiFiネットワークを優先順位付きで設定可能
+
+wifi_networks:
+  - ssid: "cisco-aktk-6"
+    password: "ti463dhevu57n"
+    priority: 1
+    
+  - ssid: "cisco-aktk"
+    password: "ti463dhevu57n"  
+    priority: 2
+    
+  - ssid: "りもiPhone"
+    password: "ti463dhevu57n"
+    priority: 3
+
+# WebServer設定
+webserver:
+  port: 80
+  title: "Stack-chan WebUI"
+  
+# システム設定
+system:
+  hostname: "stackchan"
+  connection_timeout: 10000  # ミリ秒
+  retry_interval: 5000       # ミリ秒
