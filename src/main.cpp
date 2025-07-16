@@ -244,6 +244,13 @@ void loop() {
   }
   
   if (avatar_initialized) {
+    // Button A 長押し: 接続モード選択画面（長押しを先に判定）
+    if (M5.BtnA.wasHold()) {
+      Serial.println("Button A 長押し: 接続モード選択画面");
+      showConnectionModeMenu();
+      return; // loop()の残りをスキップして次のループへ
+    }
+    
     // Button A: 表情変更（4種類をサイクル）
     if (M5.BtnA.wasPressed()) {
       Serial.println("Button A: 表情変更");
@@ -270,12 +277,6 @@ void loop() {
       
       avatar.setSpeechText(current_message.c_str());
       Serial.printf("表情: %s\n", current_message.c_str());
-    }
-    
-    // Button A 長押し: 接続モード選択画面
-    if (M5.BtnA.wasHold()) {
-      Serial.println("Button A 長押し: 接続モード選択画面");
-      showConnectionModeMenu();
     }
     
     // Button C: 接続状態詳細表示
@@ -945,7 +946,11 @@ String getSystemStatusJSON() {
 void showConnectionModeMenu() {
   if (!avatar_initialized) return;
   
-  // Avatarを一時停止して画面を使用
+  // Avatarの描画を完全に停止
+  avatar.stop();
+  delay(100); // 停止を確実にするため少し待機
+  
+  // 画面をクリアして専用UIを表示
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE);
   M5.Display.setTextSize(2);
@@ -1016,12 +1021,20 @@ void showConnectionModeMenu() {
   // タイムアウト - 元の画面に戻る
   M5.Display.fillScreen(TFT_BLACK);
   if (avatar_initialized) {
+    avatar.start(); // Avatarを再開
+    delay(100); // 再開を確実にするため少し待機
     avatar.setSpeechText(current_message.c_str());
   }
 }
 
 void showConnectionStatus() {
-  // Avatarを一時停止して画面を使用
+  // Avatarの描画を完全に停止
+  if (avatar_initialized) {
+    avatar.stop();
+    delay(100); // 停止を確実にするため少し待機
+  }
+  
+  // 画面をクリアして専用UIを表示
   M5.Display.fillScreen(TFT_BLACK);
   M5.Display.setTextColor(TFT_WHITE);
   M5.Display.setTextSize(2);
@@ -1088,6 +1101,8 @@ void showConnectionStatus() {
   // 元の画面に戻る
   M5.Display.fillScreen(TFT_BLACK);
   if (avatar_initialized) {
+    avatar.start(); // Avatarを再開
+    delay(100); // 再開を確実にするため少し待機
     avatar.setSpeechText(current_message.c_str());
   }
 }
@@ -1174,6 +1189,8 @@ void handleModeSelection(int mode) {
   delay(1000);
   M5.Display.fillScreen(TFT_BLACK);
   if (avatar_initialized) {
+    avatar.start(); // Avatarを再開
+    delay(100); // 再開を確実にするため少し待機
     avatar.setSpeechText(current_message.c_str());
   }
 }
