@@ -16,7 +16,7 @@ using namespace m5avatar;
 
 // Avatar関連
 Avatar avatar;
-ColorPalette* cps[6];  // 6色に拡張
+ColorPalette* cps[3];  // 3色に削減（メモリ節約）
 bool avatar_initialized = false;
 
 // WiFi & WebServer関連
@@ -96,15 +96,16 @@ void setup() {
   // Avatar初期化（シンプル構成）
   try {
     Serial.println("ColorPalette作成開始");
-    // 6つの色パレットを作成
-    for (int i = 0; i < 6; i++) {
+    // 3つの基本色パレットのみ作成（メモリ節約）
+    for (int i = 0; i < 3; i++) {
       cps[i] = new ColorPalette();
     }
     Serial.println("ColorPalette作成完了");
     
     Serial.println("ColorPalette設定開始");
     // 0: 標準色（デフォルト）
-    // 標準設定のまま
+    cps[0]->set(COLOR_PRIMARY, TFT_WHITE);
+    cps[0]->set(COLOR_BACKGROUND, TFT_BLACK);
     
     // 1: 青系
     cps[1]->set(COLOR_PRIMARY, TFT_YELLOW);
@@ -114,41 +115,33 @@ void setup() {
     cps[2]->set(COLOR_PRIMARY, TFT_WHITE);
     cps[2]->set(COLOR_BACKGROUND, 0x00A000); // TFT_GREENより暗い緑
     
-    // 3: 赤系
-    cps[3]->set(COLOR_PRIMARY, TFT_WHITE);
-    cps[3]->set(COLOR_BACKGROUND, TFT_RED);
-    
-    // 4: 紫系
-    cps[4]->set(COLOR_PRIMARY, TFT_YELLOW);
-    cps[4]->set(COLOR_BACKGROUND, TFT_PURPLE);
-    
-    // 5: オレンジ系
-    cps[5]->set(COLOR_PRIMARY, TFT_BLACK);
-    cps[5]->set(COLOR_BACKGROUND, TFT_ORANGE);
-    
     Serial.println("ColorPalette設定完了");
     
     Serial.println("Avatar.init()実行開始");
     avatar.init();
     Serial.println("Avatar.init()実行完了");
     
-    // 初期化後に画面を確実にクリア（緑縦線対策）
-    M5.Display.fillScreen(TFT_BLACK);
-    delay(50);
-    M5.Display.clear();
-    delay(50);
+    // Avatar内部のタスク安定化のため待機
+    delay(200);
     
     Serial.println("ColorPalette適用開始");
     avatar.setColorPalette(*cps[current_color_index]);
     Serial.println("ColorPalette適用完了");
     
+    // 設定後さらに待機
+    delay(100);
+    
     Serial.println("フォント設定開始");
     avatar.setSpeechFont(&fonts::efontJA_12);
     Serial.println("フォント設定完了");
     
+    delay(50);
+    
     Serial.println("初期表情設定開始");
     avatar.setExpression(Expression::Neutral);
     Serial.println("初期表情設定完了");
+    
+    delay(50);
     
     Serial.println("初期セリフ設定開始");
     avatar.setSpeechText(current_message.c_str());
@@ -667,11 +660,11 @@ void handleApiExpression() {
 
 void handleApiColor() {
   if (avatar_initialized) {
-    // 次の色に切り替え（6色をサイクル）
-    current_color_index = (current_color_index + 1) % 6;
+    // 次の色に切り替え（3色をサイクル）
+    current_color_index = (current_color_index + 1) % 3;
     
     const char* color_names[] = {
-      "標準色", "青系", "緑系", "赤系", "紫系", "オレンジ系"
+      "標準色", "青系", "緑系"
     };
     
     avatar.setColorPalette(*cps[current_color_index]);
@@ -697,13 +690,13 @@ void handleApiSetColor() {
   }
   
   int color_index = server.arg("index").toInt();
-  if (color_index < 0 || color_index >= 6) {
-    server.send(400, "text/plain", "Invalid color index (0-5)");
+  if (color_index < 0 || color_index >= 3) {
+    server.send(400, "text/plain", "Invalid color index (0-2)");
     return;
   }
   
   const char* color_names[] = {
-    "標準色", "青系", "緑系", "赤系", "紫系", "オレンジ系"
+    "標準色", "青系", "緑系"
   };
   
   current_color_index = color_index;
