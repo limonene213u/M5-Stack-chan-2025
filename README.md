@@ -117,212 +117,190 @@ pio run -e m5stack-grey -t uploadfs
 
 #### 🔌 REST API
 
-##### メッセージ送信
+現在のシンプル版で利用可能なAPIエンドポイント：
+
+##### 表情サイクル変更
 
 ```http
-POST /api/message
-Content-Type: application/json
-
-{
-  "message": "こんにちはスタックチャン！"
-}
+GET /api/expression
 ```
 
-##### 表情変更
+レスポンス: `Expression changed to: 嬉しい`
+
+##### 色テーマサイクル変更
 
 ```http
-POST /api/expression
-Content-Type: application/json
-
-{
-  "expression": "happy"  // normal, happy, sleepy, doubt
-}
+GET /api/color
 ```
 
-##### WiFiネットワークスキャン
+レスポンス: `Color changed to: 青系`
+
+##### 特定色テーマ設定
 
 ```http
-GET /api/wifi/scan
+GET /api/setcolor?index=0
 ```
 
-##### WiFiモード切り替え
+パラメータ:
+
+- `index`: 色テーマ番号 (0-5)
+  - `0`: 標準色
+  - `1`: 青系
+  - `2`: 緑系  
+  - `3`: 赤系
+  - `4`: 紫系
+  - `5`: オレンジ系
+
+レスポンス: `Color set to: 赤系`
+
+##### 表情とセリフの同時設定
 
 ```http
-POST /api/wifi/toggle
+GET /api/set?expression=1&speech=こんにちは！
 ```
 
-##### WiFiネットワーク追加
+パラメータ:
+
+- `expression`: 表情番号 (0-3)
+  - `0`: 普通 (Neutral)
+  - `1`: 嬉しい (Happy)
+  - `2`: 眠い (Sleepy)
+  - `3`: 困った (Doubt)
+- `speech`: 表示するセリフ（日本語対応、URLエンコード推奨）
+
+レスポンス: `表情: 嬉しい, セリフ: "こんにちは！"`
+
+##### セリフクリア
 
 ```http
-POST /api/wifi/add
-Content-Type: application/json
-
-{
-  "ssid": "新しいWiFi",
-  "password": "パスワード",
-  "priority": 1
-}
+GET /api/set?speech=
 ```
 
-##### ステータス取得
+レスポンス: `セリフ: ""`
 
-```http
-GET /api/status
+### APIの使用例
+
+#### cURLでの操作例
+
+```bash
+# 表情を嬉しいにしてメッセージを表示
+curl "http://192.168.1.100/api/set?expression=1&speech=Hello%20World"
+
+# 色を赤系に変更
+curl "http://192.168.1.100/api/setcolor?index=3"
+
+# セリフをクリア
+curl "http://192.168.1.100/api/set?speech="
 ```
 
-レスポンス例：
-```json
-{
-  "current_message": "こんにちは",
-  "last_received": "WiFi: テストメッセージ", 
-  "bluetooth_connected": true,
-  "wifi_connected": true,
-  "wifi_status": "接続済み: Home-WiFi (192.168.1.100)",
-  "ip_address": "192.168.1.100",
-  "connected_clients": 2,
-  "is_ap_mode": false,
-  "mode": 2
-}
-```
-
-### Bluetooth通信
-
-デバイス名: `StackChan-Comm`
-
-#### プレーンテキスト送信
-```
-こんにちはスタックチャン！
-```
-
-#### JSON形式送信
-```json
-{
-  "message": "メッセージ",
-  "expression": "happy"
-}
-```
-
-#### Pythonサンプル
-
-```python
-import bluetooth
-import json
-
-# Bluetooth接続
-sock = bluetooth.BluetoothSocket(bluetooth.RFCOMM)
-sock.connect(("XX:XX:XX:XX:XX:XX", 1))  # MACアドレスを設定
-
-# メッセージ送信
-message = {
-    "message": "Pythonからこんにちは！",
-    "expression": "happy"
-}
-sock.send(json.dumps(message).encode('utf-8'))
-
-# 応答受信
-response = sock.recv(1024)
-print(f"応答: {response.decode('utf-8')}")
-
-sock.close()
-```
-
-#### Node.js サンプル
+#### JavaScriptでの操作例
 
 ```javascript
-const SerialPort = require('serialport');
+// 表情とセリフを設定
+fetch('/api/set?expression=1&speech=' + encodeURIComponent('こんにちは！'))
+  .then(response => response.text())
+  .then(data => console.log(data));
 
-// Bluetooth Serial接続（OS固有の設定が必要）
-const port = new SerialPort('/dev/rfcomm0', { baudRate: 9600 });
-
-// メッセージ送信
-const message = {
-    message: "Node.jsからこんにちは！",
-    expression: "sleepy"
-};
-
-port.write(JSON.stringify(message));
-
-// 応答受信
-port.on('data', (data) => {
-    console.log('応答:', data.toString());
-});
+// 色をランダムに変更
+const colorIndex = Math.floor(Math.random() * 6);
+fetch(`/api/setcolor?index=${colorIndex}`)
+  .then(response => response.text())
+  .then(data => console.log(data));
 ```
+
+#### Pythonでの操作例
+
+```python
+import requests
+import urllib.parse
+
+# Stack-chanのIPアドレス
+base_url = "http://192.168.1.100"
+
+# 表情とセリフを設定
+speech = "Pythonからこんにちは！"
+encoded_speech = urllib.parse.quote(speech)
+response = requests.get(f"{base_url}/api/set?expression=1&speech={encoded_speech}")
+print(response.text)
+
+# 色を青系に変更
+response = requests.get(f"{base_url}/api/setcolor?index=1")
+print(response.text)
+```
+
+### セリフ自動ループ機能
+
+- ユーザーが設定したセリフは30秒後に自動的にクリアされます
+- 設定ファイル（`simple_wifi_config.h`）にランダムセリフが登録されている場合、自動的にループ表示されます
+- ランダムセリフが無効な場合は「スタックちゃん」に戻ります
 
 ### ボタン操作
 
-- **ボタンA**: 通信モード切替（WiFi/Bluetooth/両方）
-- **ボタンB**: システムステータス表示
-- **ボタンC**: ランダム表情変更
+- **ボタンA**: 表情サイクル変更（普通→嬉しい→眠い→困った）
+- **ボタンB**: WiFi再接続
+- **ボタンC**: IP アドレス表示
 
-## カスタマイズ
+### WebUI操作
 
-### 新しいAPIエンドポイント追加
+ブラウザでStack-chanのIPアドレスにアクセスすると、以下の機能が利用できます：
 
-```cpp
-// main_communication.cpp の setupWebServer() に追加
-server.on("/api/custom", HTTP_POST, []() {
-  // カスタム処理
-  DynamicJsonDocument doc(1024);
-  deserializeJson(doc, server.arg("plain"));
-  
-  String customParam = doc["custom"];
-  // 処理を追加
-  
-  server.send(200, "application/json", "{\"status\":\"success\"}");
-});
-```
+- **表情とセリフの設定**: プルダウンで表情を選択し、テキストでセリフを入力
+- **クイック操作**: 表情サイクル、色変更、セリフクリアボタン
+- **色テーマ選択**: 6種類の色テーマを直接選択
+- **システム状態**: メモリ使用量、稼働時間、WiFi情報の表示
 
-### Bluetooth コマンド拡張
+## 設定カスタマイズ
+
+### WiFi設定変更
+
+`src/simple_wifi_config.h` でWiFi設定を変更できます：
 
 ```cpp
-// handleBluetoothData() 関数内に追加
-if (doc.containsKey("custom_command")) {
-  String command = doc["custom_command"];
-  // カスタムコマンド処理
-}
+const WiFiCredentials wifi_networks[] = {
+  {"あなたのSSID", "パスワード", 1},
+  {"予備のSSID", "パスワード", 2}, 
+  {nullptr, nullptr, 0}  // 終端マーカー
+};
 ```
 
-### 新しい表情追加
+### ランダムセリフ設定
 
-Avatar ライブラリの表情一覧：
-- `Expression::Neutral`
-- `Expression::Happy` 
-- `Expression::Sleepy`
-- `Expression::Doubt`
-- `Expression::Sad`
-- `Expression::Angry`
+同じファイルでランダムセリフを設定できます：
 
-## API仕様詳細
-
-### エラーレスポンス
-
-```json
-{
-  "error": "エラーメッセージ",
-  "code": 400
-}
+```cpp
+const char* random_speeches[] = {
+  "カスタムセリフ1",
+  "カスタムセリフ2",
+  "お好みのセリフ",
+  nullptr  // 終端マーカー
+};
 ```
 
-### 通信モード
+ランダムセリフを無効にする場合：
 
-- `0`: WiFiモード（Bluetoothオフ）
-- `1`: Bluetoothモード（WiFiオフ）
-- `2`: 両方モード（デフォルト）
+```cpp
+const char* random_speeches[] = {
+  nullptr  // 終端マーカーのみ
+};
+```
 
 ## トラブルシューティング
 
 ### WiFi接続できない
+
 1. SSIDとパスワードを確認
 2. 2.4GHz帯のWiFiを使用
 3. シリアルモニターでエラー確認
 
-### Bluetooth接続できない
-1. デバイスが検出可能状態か確認
-2. 他のデバイスとのペアリングを解除
-3. デバイス名 `StackChan-Comm` で検索
+### WebUIにアクセスできない
+
+1. WiFi接続を確認
+2. シリアルモニターでIPアドレス確認
+3. ブラウザのキャッシュをクリア
 
 ### メッセージが表示されない
-1. JSON形式が正しいか確認
+
+1. URLエンコードが正しいか確認
 2. API応答ステータスを確認
 3. シリアルモニターでログ確認
 
