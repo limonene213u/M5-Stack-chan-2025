@@ -103,6 +103,7 @@ pio run -e m5stack-grey -t uploadfs
 ### 🔵 BLE WebUI（WiFi不要モード）
 
 WiFi環境がない場合やWiFi接続に失敗した場合、自動的にBLEモードで起動します。
+BLEデバイス名は `StackChan-WebUI` です。
 
 #### BLE接続手順
 

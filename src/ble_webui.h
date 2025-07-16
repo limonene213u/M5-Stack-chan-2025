@@ -20,7 +20,7 @@ extern String generateWebUIHTML();
 // BLE設定（最もシンプルで確実な設定）
 #define BLE_SERVICE_UUID        "12345678-1234-1234-1234-123456789ABC"  // シンプルなカスタムUUID
 #define BLE_CHARACTERISTIC_UUID "87654321-4321-4321-4321-CBA987654321"  // シンプルなカスタムUUID
-#define BLE_DEVICE_NAME         "StackChan"
+#define BLE_DEVICE_NAME         "StackChan-WebUI"
 
 class BLEWebUIHandler {
 public:
