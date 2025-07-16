@@ -209,29 +209,6 @@ void setup() {
 void loop() {
   M5.update();
   
-  // ボタン処理を最優先で実行
-  if (avatar_initialized) {
-    // Button B: 通信モード切り替え（WiFi ⟷ BLE）- 最優先処理
-    if (M5.BtnB.wasPressed()) {
-      Serial.println("Button B: 即座に通信モード切り替え");
-      
-      // 切り替え中のメッセージ表示
-      if (connection_mode_ble) {
-        current_message = "WiFiモードに切り替え中...";
-      } else {
-        current_message = "BLEペアリングモードに切り替え中...";
-      }
-      
-      if (avatar_initialized) {
-        avatar.setSpeechText(current_message.c_str());
-      }
-      
-      // 即座に切り替え実行
-      toggleConnectionMode();
-      return; // loop()の残りをスキップして次のループへ
-    }
-  }
-  
   // 通信処理
   if (!connection_mode_ble && wifi_connected) {
     // WiFiモード
@@ -272,16 +249,24 @@ void loop() {
       Serial.printf("表情: %s\n", current_message.c_str());
     }
     
-    // Button A 長押し: BLE再起動（BLEモード時のみ）
-    if (M5.BtnA.wasHold() && connection_mode_ble && ble_enabled && bleWebUI) {
-      Serial.println("Button A 長押し: BLE再起動");
-      current_message = "BLE再起動中...";
-      avatar.setSpeechText(current_message.c_str());
+    // Button B: WiFi再接続
+    // Button B: 通信モード切り替え（WiFi ⟷ BLE）
+    if (M5.BtnB.wasPressed()) {
+      Serial.println("Button B: 即座に通信モード切り替え");
       
-      bleWebUI->restart();
+      // 切り替え中のメッセージ表示
+      if (connection_mode_ble) {
+        current_message = "WiFiモードに切り替え中...";
+      } else {
+        current_message = "BLEペアリングモードに切り替え中...";
+      }
       
-      current_message = String("BLE: ") + BLE_DEVICE_NAME + " (再起動完了)";
-      avatar.setSpeechText(current_message.c_str());
+      if (avatar_initialized) {
+        avatar.setSpeechText(current_message.c_str());
+      }
+      
+      // 即座に切り替え実行（待機時間なし）
+      toggleConnectionMode();
     }
     
     // Button C: IP/BLE状態表示

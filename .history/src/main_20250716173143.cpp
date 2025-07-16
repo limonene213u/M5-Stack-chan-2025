@@ -272,18 +272,6 @@ void loop() {
       Serial.printf("表情: %s\n", current_message.c_str());
     }
     
-    // Button A 長押し: BLE再起動（BLEモード時のみ）
-    if (M5.BtnA.wasHold() && connection_mode_ble && ble_enabled && bleWebUI) {
-      Serial.println("Button A 長押し: BLE再起動");
-      current_message = "BLE再起動中...";
-      avatar.setSpeechText(current_message.c_str());
-      
-      bleWebUI->restart();
-      
-      current_message = String("BLE: ") + BLE_DEVICE_NAME + " (再起動完了)";
-      avatar.setSpeechText(current_message.c_str());
-    }
-    
     // Button C: IP/BLE状態表示
     if (M5.BtnC.wasPressed()) {
       Serial.println("Button C: 状態表示");
