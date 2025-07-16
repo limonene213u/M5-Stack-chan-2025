@@ -18,7 +18,7 @@ struct WiFiCredentials {
 // WiFi設定一覧（優先順位順）
 // ここを編集してWiFi設定を変更してください
 const WiFiCredentials wifi_networks[] = {
-  {"IoT", "Iotpass2020", 1},
+  {"cisco-aktk-6", "ti463dhevu57n", 1},
   {"cisco-aktk", "ti463dhevu57n", 2}, 
   {"AETS-i", "ti463dhevu57n", 3},
   {nullptr, nullptr, 0}  // 終端マーカー

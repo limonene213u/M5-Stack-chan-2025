@@ -18,9 +18,9 @@ struct WiFiCredentials {
 // WiFi設定一覧（優先順位順）
 // ここを編集してWiFi設定を変更してください
 const WiFiCredentials wifi_networks[] = {
-  {"IoT", "Iotpass2020", 1},
+  {"cisco-aktk-6", "ti463dhevu57n", 1},
   {"cisco-aktk", "ti463dhevu57n", 2}, 
-  {"AETS-i", "ti463dhevu57n", 3},
+  {"ROG", "ti463dhevu57n", 3},
   {nullptr, nullptr, 0}  // 終端マーカー
 };
 
@@ -36,11 +36,10 @@ const unsigned long SPEECH_AUTO_CLEAR_TIME = 30000;  // 30秒でセリフクリ�
 // ランダムセリフリスト（空の場合はループしない）
 const char* random_speeches[] = {
   "こんにちは！",
-  "ボク、スタックチャン！",
-  "元気？",
-  "今日は何しよう？",
+  "元気だよ～",
+  "今日はいい天気だね",
   "何か話そうか？",
-  "Hello World!",
+  "楽しいな！",
   "また会えて嬉しいよ",
   nullptr  // 終端マーカー
   
