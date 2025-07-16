@@ -228,6 +228,264 @@ response = requests.get(f"{base_url}/api/setcolor?index=1")
 print(response.text)
 ```
 
+### より詳しいPythonプログラム例
+
+以下は実用的なStack-chan制御プログラムのサンプルです：
+
+#### 基本的なStack-chanクライアントクラス
+
+```python
+import requests
+import urllib.parse
+import time
+import random
+from typing import Optional
+
+class StackChanClient:
+    """Stack-chan制御用クライアントクラス"""
+    
+    EXPRESSIONS = {
+        'neutral': 0,    # 普通
+        'happy': 1,      # 嬉しい
+        'sleepy': 2,     # 眠い
+        'doubt': 3       # 困った
+    }
+    
+    COLORS = {
+        'default': 0,    # 標準色
+        'blue': 1,       # 青系
+        'green': 2,      # 緑系
+        'red': 3,        # 赤系
+        'purple': 4,     # 紫系
+        'orange': 5      # オレンジ系
+    }
+    
+    def __init__(self, ip_address: str = "192.168.1.100", timeout: int = 5):
+        """
+        Stack-chanクライアントを初期化
+        
+        Args:
+            ip_address: Stack-chanのIPアドレス
+            timeout: リクエストタイムアウト（秒）
+        """
+        self.base_url = f"http://{ip_address}"
+        self.timeout = timeout
+    
+    def _make_request(self, endpoint: str) -> Optional[str]:
+        """APIリクエストを実行"""
+        try:
+            response = requests.get(f"{self.base_url}{endpoint}", timeout=self.timeout)
+            response.raise_for_status()
+            return response.text
+        except requests.exceptions.RequestException as e:
+            print(f"エラー: {e}")
+            return None
+    
+    def set_expression_and_speech(self, expression: str, speech: str) -> bool:
+        """表情とセリフを同時に設定"""
+        if expression not in self.EXPRESSIONS:
+            print(f"無効な表情: {expression}")
+            return False
+        
+        exp_num = self.EXPRESSIONS[expression]
+        encoded_speech = urllib.parse.quote(speech)
+        endpoint = f"/api/set?expression={exp_num}&speech={encoded_speech}"
+        
+        result = self._make_request(endpoint)
+        if result:
+            print(f"設定完了: {result}")
+            return True
+        return False
+    
+    def set_color(self, color: str) -> bool:
+        """色テーマを設定"""
+        if color not in self.COLORS:
+            print(f"無効な色: {color}")
+            return False
+        
+        color_num = self.COLORS[color]
+        endpoint = f"/api/setcolor?index={color_num}"
+        
+        result = self._make_request(endpoint)
+        if result:
+            print(f"色変更完了: {result}")
+            return True
+        return False
+    
+    def cycle_expression(self) -> bool:
+        """表情をサイクル変更"""
+        result = self._make_request("/api/expression")
+        if result:
+            print(f"表情変更: {result}")
+            return True
+        return False
+    
+    def cycle_color(self) -> bool:
+        """色をサイクル変更"""
+        result = self._make_request("/api/color")
+        if result:
+            print(f"色変更: {result}")
+            return True
+        return False
+    
+    def clear_speech(self) -> bool:
+        """セリフをクリア"""
+        result = self._make_request("/api/set?speech=")
+        if result:
+            print("セリフクリア完了")
+            return True
+        return False
+
+# 使用例
+if __name__ == "__main__":
+    # Stack-chanクライアントを作成
+    stackchan = StackChanClient("192.168.1.100")
+    
+    # 基本的な操作
+    stackchan.set_expression_and_speech("happy", "こんにちは！")
+    time.sleep(2)
+    
+    stackchan.set_color("blue")
+    time.sleep(2)
+    
+    stackchan.clear_speech()
+```
+
+#### デモプログラム例
+
+```python
+import time
+import random
+
+def demo_expressions():
+    """表情デモ"""
+    stackchan = StackChanClient("192.168.1.100")
+    
+    expressions = [
+        ("happy", "嬉しいです！"),
+        ("sleepy", "ちょっと眠いかも..."),
+        ("doubt", "うーん、どうしよう？"),
+        ("neutral", "普通の状態です")
+    ]
+    
+    print("表情デモを開始...")
+    for expression, speech in expressions:
+        stackchan.set_expression_and_speech(expression, speech)
+        time.sleep(3)
+
+def demo_colors():
+    """色テーマデモ"""
+    stackchan = StackChanClient("192.168.1.100")
+    
+    colors = ["blue", "green", "red", "purple", "orange", "default"]
+    speeches = ["青色だよ", "緑色！", "赤色です", "紫色〜", "オレンジ色", "標準色に戻ったよ"]
+    
+    print("色テーマデモを開始...")
+    for color, speech in zip(colors, speeches):
+        stackchan.set_color(color)
+        stackchan.set_expression_and_speech("happy", speech)
+        time.sleep(3)
+
+def interactive_mode():
+    """対話モード"""
+    stackchan = StackChanClient("192.168.1.100")
+    
+    print("対話モードを開始します。'quit'で終了。")
+    
+    while True:
+        try:
+            user_input = input("\nセリフを入力してください: ")
+            if user_input.lower() == 'quit':
+                break
+            
+            # ランダムに表情を選択
+            expressions = list(StackChanClient.EXPRESSIONS.keys())
+            random_expression = random.choice(expressions)
+            
+            stackchan.set_expression_and_speech(random_expression, user_input)
+            
+        except KeyboardInterrupt:
+            break
+    
+    print("対話モードを終了します。")
+
+# メイン実行部
+if __name__ == "__main__":
+    print("Stack-chan制御プログラム")
+    print("1: 表情デモ")
+    print("2: 色テーマデモ") 
+    print("3: 対話モード")
+    
+    choice = input("選択してください (1-3): ")
+    
+    if choice == "1":
+        demo_expressions()
+    elif choice == "2":
+        demo_colors()
+    elif choice == "3":
+        interactive_mode()
+    else:
+        print("無効な選択です。")
+```
+
+#### 定期実行プログラム例
+
+```python
+import schedule
+import time
+from datetime import datetime
+
+def hourly_greeting():
+    """毎時の挨拶"""
+    stackchan = StackChanClient("192.168.1.100")
+    now = datetime.now()
+    
+    if 6 <= now.hour < 12:
+        stackchan.set_expression_and_speech("happy", "おはようございます！")
+    elif 12 <= now.hour < 18:
+        stackchan.set_expression_and_speech("neutral", "こんにちは！")
+    else:
+        stackchan.set_expression_and_speech("sleepy", "お疲れ様です")
+
+def random_color_change():
+    """ランダム色変更"""
+    stackchan = StackChanClient("192.168.1.100")
+    colors = list(StackChanClient.COLORS.keys())
+    random_color = random.choice(colors)
+    stackchan.set_color(random_color)
+
+# スケジュール設定
+schedule.every().hour.do(hourly_greeting)
+schedule.every(30).minutes.do(random_color_change)
+
+print("定期実行プログラムを開始...")
+while True:
+    schedule.run_pending()
+    time.sleep(1)
+```
+
+#### 必要なライブラリのインストール
+
+```bash
+pip install requests schedule
+```
+
+### 完全なPythonプログラム例
+
+詳細なPythonプログラム例は`examples/python/`フォルダに用意されています：
+
+- **`stackchan_client.py`** - 対話的制御プログラム（表情デモ、色デモ、対話モード）
+- **`stackchan_scheduler.py`** - 定期実行プログラム（時間別挨拶、自動色変更）
+- **`requirements.txt`** - 必要ライブラリリスト
+
+使用方法:
+
+```bash
+cd examples/python
+pip install -r requirements.txt
+python stackchan_client.py
+```
+
 ### セリフ自動ループ機能
 
 - ユーザーが設定したセリフは30秒後に自動的にクリアされます
