@@ -13,6 +13,8 @@
 - **APモード切り替え**: スタックチャン自体がWiFiアクセスポイントになる
 - **自動フォールバック**: 全WiFi接続失敗時に自動でAPモードに切り替え
 - **WebUI WiFi管理**: ブラウザからWiFi設定の追加・削除・切り替え
+- **🔵 BLE WebUI**: WiFi不要でBluetooth経由でWebUIアクセス可能
+- **通信モード切り替え**: ボタン操作でWiFi⟷BLEモードを動的切り替え
 - **Bluetooth通信**: シリアル通信でのメッセージ受信
 
 ### 🎨 表示・Avatar機能
@@ -97,6 +99,48 @@ pio run -e m5stack-grey -t uploadfs
 ```
 
 ## 📱 使い方
+
+### 🔵 BLE WebUI（WiFi不要モード）
+
+WiFi環境がない場合やWiFi接続に失敗した場合、自動的にBLEモードで起動します。
+
+#### BLE接続手順
+
+1. **自動BLEモード起動**: WiFi接続に失敗すると自動的にBLEモードに切り替わります
+2. **手動切り替え**: ボタンBでWiFi⟷BLEモードを切り替え可能
+3. **デバイス検索**: スマートフォンやPCのBluetooth設定で「StackChan-WebUI」を検索
+4. **BLEアプリ使用**: 
+   - iOS: LightBlue、BLE Scanner等
+   - Android: nRF Connect、BLE Scanner等
+   - PC: Web Bluetooth対応ブラウザ（Chrome等）
+
+#### BLE WebUI操作
+
+1. BLEアプリで「StackChan-WebUI」に接続
+2. サービスUUID: `12345678-1234-1234-1234-123456789abc`
+3. 特性UUID: `87654321-4321-4321-4321-cba987654321`
+4. 特性にHTTPリクエスト形式で書き込み:
+   ```
+   GET /
+   GET /api/expression
+   GET /api/set?expression=1&speech=Hello
+   ```
+
+#### 対応BLEアプリ
+
+**iOS**
+- **LightBlue Explorer** (推奨)
+- BLE Scanner 4.0
+- Bluetooth Scanner
+
+**Android**
+- **nRF Connect** (推奨) 
+- BLE Scanner
+- Bluetooth LE Scanner
+
+**PC/Mac**
+- Web Bluetooth対応ブラウザ（Chrome、Edge等）
+- Bluetooth LE Explorer (Windows)
 
 ### WiFi接続
 
@@ -495,8 +539,8 @@ python stackchan_client.py
 ### ボタン操作
 
 - **ボタンA**: 表情サイクル変更（普通→嬉しい→眠い→困った）
-- **ボタンB**: WiFi再接続
-- **ボタンC**: IP アドレス表示
+- **ボタンB**: 通信モード切り替え（WiFi ⟷ BLE）
+- **ボタンC**: 接続状態表示（WiFi IP / BLE状態）
 
 ### WebUI操作
 
