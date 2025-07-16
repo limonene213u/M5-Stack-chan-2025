@@ -65,7 +65,21 @@ void BLEWebUIHandler::begin() {
     pAdvertising->setMinPreferred(0x06);
     pAdvertising->setMaxPreferred(0x12);
     
+    // ペアリング時間を延長（120秒）
+    esp_ble_gap_set_scan_params(
+        BLE_SCAN_TYPE_ACTIVE,    // アクティブスキャン
+        0x30,                    // スキャン間隔 (30ms)
+        0x30,                    // スキャンウィンドウ (30ms)
+        BLE_ADDR_TYPE_PUBLIC,    // 自分のアドレスタイプ
+        BLE_SCAN_FILTER_ALLOW_ALL // すべてのデバイスをスキャン
+    );
+    
     BLEDevice::startAdvertising();
+    
+    // ペアリングタイムアウトを120秒に設定
+    esp_ble_gap_set_security_param(ESP_BLE_SM_IOCAP, &(uint8_t){ESP_IO_CAP_NONE}, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_MAX_KEY_SIZE, &(uint8_t){16}, sizeof(uint8_t));
+    esp_ble_gap_set_security_param(ESP_BLE_SM_SET_INIT_KEY, &(uint8_t){ESP_BLE_ENC_KEY_MASK | ESP_BLE_ID_KEY_MASK}, sizeof(uint8_t));
     
     Serial.println("BLE WebUI準備完了");
     Serial.println("デバイス名: " + String(BLE_DEVICE_NAME));

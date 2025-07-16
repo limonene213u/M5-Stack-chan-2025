@@ -13,6 +13,7 @@
 #include <BLE2902.h>
 #include <ArduinoJson.h>
 #include "esp_gap_ble_api.h"
+#include "esp_gatt_common_api.h"
 
 // main.cppの関数宣言
 extern String generateWebUIHTML();
@@ -21,6 +22,7 @@ extern String generateWebUIHTML();
 #define BLE_SERVICE_UUID        "12345678-1234-1234-1234-123456789ABC"  // シンプルなカスタムUUID
 #define BLE_CHARACTERISTIC_UUID "87654321-4321-4321-4321-CBA987654321"  // シンプルなカスタムUUID
 #define BLE_DEVICE_NAME         "StackChan"
+#define BLE_PAIRING_TIMEOUT     120000  // ペアリングタイムアウト: 120秒
 
 class BLEWebUIHandler {
 public:
