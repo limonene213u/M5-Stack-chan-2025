@@ -51,7 +51,7 @@ void handleApiColor();
 void handleApiSetColor();
 void handleApiSet();
 void handle404();
-String generateWebUIHTML();  // 追加: 共通HTML生成関数
+String generateWebUIHTML();  // 共通HTML生成関数
 void checkRandomSpeechConfig();
 String getRandomSpeech();
 void updateSpeechLoop();
@@ -63,9 +63,6 @@ void changeExpressionById(int id);
 void changeColorById(int id);
 void setSpeechText(const String& text, int expression = -1);
 String getSystemStatusJSON();
-void checkRandomSpeechConfig();
-String getRandomSpeech();
-void updateSpeechLoop();
 
 void setup() {
   // M5Stack基本初期化
