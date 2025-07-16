@@ -969,14 +969,14 @@ void changeColorById(int id) {
   
   if (id == -1) {
     // サイクル変更
-    current_color_index = (current_color_index + 1) % 6;
+    current_color_index = (current_color_index + 1) % 3;
   } else {
-    current_color_index = id % 6;
+    current_color_index = id % 3;
   }
   
   avatar.setColorPalette(*cps[current_color_index]);
   
-  String color_names[] = {"標準色", "青系", "緑系", "赤系", "紫系", "オレンジ系"};
+  String color_names[] = {"標準色", "青系", "緑系"};
   current_message = color_names[current_color_index];
   avatar.setSpeechText(current_message.c_str());
   speech_set_by_user = true;
