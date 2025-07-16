@@ -27,8 +27,15 @@ const WiFiCredentials wifi_networks[] = {
 
 ## ボタン操作
 - **Button A**: 表情変更（普通→嬉しい→眠い→困った）
-- **Button B**: WiFi再接続
-- **Button C**: IP アドレス表示
+- **Button A 長押し**: 接続モード選択画面
+- **Button B**: WiFi⟷BLEモード切り替え
+- **Button C**: 詳細接続状態表示
+
+## BLE機能
+WiFi環境がない場合やBボタンでBLEモードに切り替え可能：
+- **BLEデバイス名**: `StackChan`
+- **ペアリング時間**: 120秒（従来の倍以上）
+- **推奨アプリ**: LightBlue (iOS)、nRF Connect (Android)
 
 ## WebUI機能
 WiFi接続後、ブラウザで以下にアクセス：

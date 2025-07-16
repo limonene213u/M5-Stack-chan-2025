@@ -7,6 +7,8 @@
 #include <Avatar.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include "esp_bt_main.h"
+#include "esp_bt.h"
 #include "simple_wifi_config.h"
 #include "ble_webui.h"
 
@@ -162,30 +164,69 @@ void setup() {
     Serial.println("Avatar初期化失敗 - フォールバックモードで継続");
   }
   
-  // 接続モード決定（WiFi優先、Bボタンで割り込み可能）
-  Serial.println("通信モード初期化開始");
-  current_message = "WiFi接続中... (Bボタン=BLE切替)";
+  // 接続モード選択（5秒間待機）
+  Serial.println("通信モード選択開始");
+  current_message = "接続モード選択 A:WiFi B:BLE (5秒自動:WiFi)";
   if (avatar_initialized) {
     avatar.setSpeechText(current_message.c_str());
   }
   
-  if (connectToWiFi()) {
-    // WiFiモード
-    connection_mode_ble = false;
-    Serial.println("WiFiモードで起動");
+  // 画面に選択肢を表示
+  M5.Display.fillScreen(TFT_BLACK);
+  M5.Display.setTextColor(TFT_WHITE);
+  M5.Display.setTextSize(1);
+  M5.Display.setCursor(10, 10);
+  M5.Display.println("=== 接続モード選択 ===");
+  M5.Display.setCursor(10, 30);
+  M5.Display.println("Aボタン: WiFiモード");
+  M5.Display.setCursor(10, 45);
+  M5.Display.println("Bボタン: BLEモード");
+  M5.Display.setCursor(10, 70);
+  M5.Display.println("5秒後に自動でWiFiモード");
+  
+  // 5秒間ボタン待機
+  bool mode_selected = false;
+  bool use_ble_mode = false;
+  unsigned long start_time = millis();
+  
+  while (!mode_selected && (millis() - start_time) < 5000) {
+    M5.update();
     
-    // WebServer初期化
-    Serial.println("WebServer初期化開始");
-    setupWebServer();
-    
-    current_message = String("WebUI: ") + current_ip;
-    if (avatar_initialized) {
-      avatar.setSpeechText(current_message.c_str());
+    if (M5.BtnA.wasPressed()) {
+      Serial.println("WiFiモードを選択");
+      use_ble_mode = false;
+      mode_selected = true;
+    } else if (M5.BtnB.wasPressed()) {
+      Serial.println("BLEモードを選択");
+      use_ble_mode = true;
+      mode_selected = true;
     }
-  } else {
-    // BLEモード（WiFi失敗またはBボタン割り込み）
+    
+    // 残り時間表示更新（1秒ごと）
+    static unsigned long last_countdown = 0;
+    if (millis() - last_countdown > 1000) {
+      int remaining = 5 - ((millis() - start_time) / 1000);
+      M5.Display.fillRect(10, 85, 300, 15, TFT_BLACK);
+      M5.Display.setCursor(10, 85);
+      M5.Display.printf("自動選択まで: %d秒", remaining);
+      last_countdown = millis();
+    }
+    
+    delay(50);
+  }
+  
+  if (!mode_selected) {
+    Serial.println("タイムアウト - WiFiモードで起動");
+    use_ble_mode = false;
+  }
+  
+  // Avatar画面に戻す
+  M5.Display.fillScreen(TFT_BLACK);
+  
+  if (use_ble_mode) {
+    // BLEモードで起動
     connection_mode_ble = true;
-    Serial.println("BLEペアリングモードで起動");
+    Serial.println("BLEモードで起動");
     
     current_message = "BLEペアリングモード初期化中...";
     if (avatar_initialized) {
@@ -197,6 +238,42 @@ void setup() {
     current_message = "BLE: " + String(BLE_DEVICE_NAME) + " (ペアリング待機中)";
     if (avatar_initialized) {
       avatar.setSpeechText(current_message.c_str());
+    }
+  } else {
+    // WiFiモードで起動
+    connection_mode_ble = false;
+    current_message = "WiFi接続中... (Bボタン=BLE切替)";
+    if (avatar_initialized) {
+      avatar.setSpeechText(current_message.c_str());
+    }
+    
+    if (connectToWiFi()) {
+      Serial.println("WiFiモードで起動");
+      
+      // WebServer初期化
+      Serial.println("WebServer初期化開始");
+      setupWebServer();
+      
+      current_message = String("WebUI: ") + current_ip;
+      if (avatar_initialized) {
+        avatar.setSpeechText(current_message.c_str());
+      }
+    } else {
+      // WiFi失敗時はBLEモードにフォールバック
+      Serial.println("WiFi接続失敗 - BLEモードにフォールバック");
+      connection_mode_ble = true;
+      
+      current_message = "BLEペアリングモード初期化中...";
+      if (avatar_initialized) {
+        avatar.setSpeechText(current_message.c_str());
+      }
+      
+      initializeBLE();
+      
+      current_message = "BLE: " + String(BLE_DEVICE_NAME) + " (WiFi失敗→BLE)";
+      if (avatar_initialized) {
+        avatar.setSpeechText(current_message.c_str());
+      }
     }
   }
   
@@ -336,9 +413,23 @@ void loop() {
   // システム監視（10秒ごと）
   static unsigned long last_heartbeat = 0;
   if (millis() - last_heartbeat > 10000) {
-    Serial.printf("Avatar=%s, WiFi=%s, Memory=%dKB, Uptime=%lus\n", 
+    String mode_status = connection_mode_ble ? "BLE" : "WiFi";
+    String ble_status = "OFF";
+    String wifi_status = wifi_connected ? "OK" : "NG";
+    
+    if (ble_enabled) {
+      if (bleWebUI && bleWebUI->isConnected()) {
+        ble_status = "Connected";
+      } else {
+        ble_status = "Advertising";
+      }
+    }
+    
+    Serial.printf("Mode=%s, Avatar=%s, WiFi=%s, BLE=%s, Memory=%dKB, Uptime=%lus\n", 
+                  mode_status.c_str(),
                   avatar_initialized ? "OK" : "NG",
-                  wifi_connected ? "OK" : "NG", 
+                  wifi_status.c_str(),
+                  ble_status.c_str(),
                   ESP.getFreeHeap() / 1024, 
                   millis() / 1000);
     last_heartbeat = millis();
@@ -766,14 +857,19 @@ void toggleConnectionMode() {
     // BLE → WiFiモードに切り替え
     Serial.println("BLE → WiFiモードに切り替え中...");
     
-    // BLE停止
+    // BLE停止（メモリ解放を含む）
     if (ble_enabled) {
       if (bleWebUI) {
         delete bleWebUI;
         bleWebUI = nullptr;
       }
       BLEDevice::deinit();
+      
+      // Bluetoothコントローラーのメモリを解放（推奨）
+      esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
+      
       ble_enabled = false;
+      Serial.println("BLE完全停止・メモリ解放完了");
     }
     
     connection_mode_ble = false;

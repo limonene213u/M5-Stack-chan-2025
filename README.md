@@ -102,14 +102,25 @@ pio run -e m5stack-grey -t uploadfs
 
 ### 🔵 BLE WebUI（WiFi不要モード）
 
-WiFi環境がない場合やWiFi接続に失敗した場合、自動的にBLEモードで起動します。
-BLEデバイス名は `StackChan-WebUI` です。
+起動時に接続モードを選択できます（5秒間のタイムアウト）。
+BLEデバイス名は `StackChan` です。
+
+#### 接続モード選択
+
+**起動時の選択画面**:
+- **Aボタン**: WiFiモード
+- **Bボタン**: BLEモード  
+- **自動選択**: 5秒後にWiFiモード
+
+**実行中の切り替え**:
+- **Bボタン**: WiFi⟷BLEモードを動的切り替え
+- **Aボタン長押し**: 接続モード選択画面
 
 #### BLE接続手順
 
-1. **自動BLEモード起動**: WiFi接続に失敗すると自動的にBLEモードに切り替わります
-2. **手動切り替え**: ボタンBでWiFi⟷BLEモードを切り替え可能
-3. **デバイス検索**: スマートフォンやPCのBluetooth設定で「StackChan-WebUI」を検索
+1. **BLEモード選択**: 起動時にBボタンを押すか、Bボタンで切り替え
+2. **デバイス検索**: スマートフォンやPCのBluetooth設定で「StackChan」を検索
+3. **120秒間の発見可能性**: ペアリングタイムアウトが120秒に延長
 4. **BLEアプリ使用**: 
    - iOS: LightBlue、BLE Scanner等
    - Android: nRF Connect、BLE Scanner等
@@ -117,15 +128,73 @@ BLEデバイス名は `StackChan-WebUI` です。
 
 #### BLE WebUI操作
 
-1. BLEアプリで「StackChan-WebUI」に接続
-2. サービスUUID: `12345678-1234-1234-1234-123456789abc`
-3. 特性UUID: `87654321-4321-4321-4321-cba987654321`
-4. 特性にHTTPリクエスト形式で書き込み:
-   ```
-   GET /
-   GET /api/expression
-   GET /api/set?expression=1&speech=Hello
-   ```
+**重要**: BLE経由のWebUIは通常のWebブラウザでは直接アクセスできません。BLEアプリを使用してHTTPリクエスト形式でコマンドを送信します。
+
+1. **BLEアプリで「StackChan」に接続**
+2. **サービスUUID**: `12345678-1234-1234-1234-123456789ABC`
+3. **特性UUID**: `87654321-4321-4321-4321-CBA987654321`
+4. **特性にHTTPリクエスト形式で書き込み**:
+
+##### BLE経由でのAPI操作例
+
+**基本WebUI表示**:
+```
+GET /
+```
+
+**表情変更**:
+```
+GET /api/expression
+```
+
+**表情とセリフ設定**:
+```
+GET /api/set?expression=1&speech=こんにちは
+```
+
+**色変更**:
+```
+GET /api/setcolor?index=2
+```
+
+**セリフクリア**:
+```
+GET /api/set?speech=
+```
+
+##### Web Bluetooth対応ブラウザでの接続
+
+一部のモダンブラウザ（Chrome、Edge等）ではWeb Bluetooth APIを使用して接続可能です：
+
+1. **ブラウザでJavaScriptコンソールを開く**
+2. **以下のコードを実行**:
+
+```javascript
+// Web Bluetooth接続例
+async function connectToStackChan() {
+  try {
+    const device = await navigator.bluetooth.requestDevice({
+      filters: [{ name: 'StackChan' }],
+      optionalServices: ['12345678-1234-1234-1234-123456789abc']
+    });
+    
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService('12345678-1234-1234-1234-123456789abc');
+    const characteristic = await service.getCharacteristic('87654321-4321-4321-4321-cba987654321');
+    
+    // HTTPリクエストを送信
+    const encoder = new TextEncoder();
+    await characteristic.writeValue(encoder.encode('GET /api/expression'));
+    
+    console.log('コマンド送信完了');
+  } catch (error) {
+    console.error('接続エラー:', error);
+  }
+}
+
+// 接続実行
+connectToStackChan();
+```
 
 #### 対応BLEアプリ
 
@@ -540,8 +609,9 @@ python stackchan_client.py
 ### ボタン操作
 
 - **ボタンA**: 表情サイクル変更（普通→嬉しい→眠い→困った）
-- **ボタンB**: 通信モード切り替え（WiFi ⟷ BLE）
-- **ボタンC**: 接続状態表示（WiFi IP / BLE状態）
+- **ボタンA長押し**: 接続モード選択画面（WiFi/BLE切り替え、再起動オプション）
+- **ボタンB**: 通信モード即座切り替え（WiFi ⟷ BLE）
+- **ボタンC**: 詳細接続状態表示（WiFi/BLE状態、システム情報）
 
 ### WebUI操作
 

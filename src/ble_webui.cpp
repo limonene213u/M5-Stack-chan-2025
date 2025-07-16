@@ -58,14 +58,17 @@ void BLEWebUIHandler::begin() {
     // サービス開始
     pService->start();
     
-    // アドバタイズ開始（シンプルで確実な設定）
+    // アドバタイズ設定（確実な発見性を重視）
     BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
     pAdvertising->addServiceUUID(BLE_SERVICE_UUID);
-    pAdvertising->setScanResponse(true);
+    
+    // デバイス名を広告データに含める（iOS/Android対応）
+    pAdvertising->setScanResponse(false);  // メイン広告にデバイス名を含める
+    pAdvertising->setAdvertisementType(ADV_TYPE_IND);  // 接続可能で発見可能
     pAdvertising->setMinPreferred(0x06);
     pAdvertising->setMaxPreferred(0x12);
     
-    // BLE広告タイムアウトを120秒に設定
+    // BLE広告間隔を最適化（発見性重視）
     pAdvertising->setMinInterval(0x20);  // 20ms間隔
     pAdvertising->setMaxInterval(0x40);  // 40ms間隔
     
@@ -84,12 +87,16 @@ void BLEWebUIHandler::begin() {
     Serial.println("デバイス名: " + String(BLE_DEVICE_NAME));
     Serial.println("サービスUUID: " + String(BLE_SERVICE_UUID));
     Serial.println("特性UUID: " + String(BLE_CHARACTERISTIC_UUID));
-    Serial.println("BLEアドバタイズ開始 - 標準設定");
-    Serial.println("発見のヒント:");
+    Serial.println("BLEアドバタイズ開始 - 120秒タイムアウト設定");
+    Serial.println("");
+    Serial.println("=== BLE接続ガイド ===");
     Serial.println("1. スマートフォンのBluetooth設定を開く");
     Serial.println("2. '新しいデバイス' または 'デバイス検索' を選択");
     Serial.println("3. '" + String(BLE_DEVICE_NAME) + "' を探してタップ");
-    Serial.println("4. 見つからない場合は、Aボタン長押しでBLE再起動");
+    Serial.println("4. BLEアプリ（LightBlue、nRF Connect等）で接続");
+    Serial.println("5. 見つからない場合は、Aボタン長押し→BLE再起動");
+    Serial.println("6. 接続状態確認: Cボタンで詳細状態表示");
+    Serial.println("==================");
 }
 
 void BLEWebUIHandler::restart() {
