@@ -1,0 +1,51 @@
+/*
+ * Simple WiFi Configuration for Stack-chan
+ * YAMLファイルを使わずに直接設定する軽量版
+ * 
+ * 使用方法:
+ * 1. このファイルを simple_wifi_config.h にコピー
+ * 2. YOUR_WIFI_SSID と YOUR_WIFI_PASSWORD を実際の値に変更
+ * 3. 必要に応じて追加のネットワーク設定を追加
+ */
+
+#ifndef SIMPLE_WIFI_CONFIG_H
+#define SIMPLE_WIFI_CONFIG_H
+
+#include <Arduino.h>
+
+// WiFi設定構造体
+struct WiFiCredentials {
+  const char* ssid;
+  const char* password;
+  int priority;
+};
+
+// WiFi設定一覧（優先順位順）
+// ここを編集してWiFi設定を変更してください
+const WiFiCredentials wifi_networks[] = {
+  {"YOUR_WIFI_SSID", "YOUR_WIFI_PASSWORD", 1},
+  {"YOUR_MOBILE_HOTSPOT", "YOUR_MOBILE_PASSWORD", 2}, 
+  {"YOUR_GUEST_NETWORK", "YOUR_GUEST_PASSWORD", 3},
+  {nullptr, nullptr, 0}  // この行は削除しないでください
+};
+
+// WebServer設定
+const int WEBSERVER_PORT = 80;
+const char* HOSTNAME = "stackchan";
+const unsigned long CONNECTION_TIMEOUT = 10000;  // 10秒
+
+// セリフ設定
+const unsigned long SPEECH_AUTO_CLEAR_TIME = 30000;  // 30秒
+
+// ランダムセリフ（オプション）
+// 使用しない場合は最初の要素をnullptrにしてください
+const char* random_speeches[] = {
+  "こんにちは！",
+  "今日もいい天気ですね",
+  "お疲れ様です",
+  "元気ですか？",
+  "いい1日を！",
+  nullptr  // 終端マーカー（削除しないでください）
+};
+
+#endif // SIMPLE_WIFI_CONFIG_H

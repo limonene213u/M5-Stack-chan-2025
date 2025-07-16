@@ -34,3 +34,15 @@
 .pio
 .vscode
 lib/
+
+# 機密設定ファイル（実際のWiFi認証情報を含む）
+src/simple_wifi_config.h
+data/wifi_config.yaml
+
+# VS Code履歴ファイル
+.history/
+
+# その他の機密ファイル
+*.secret
+*.private
+settings.json

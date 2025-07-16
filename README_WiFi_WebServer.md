@@ -22,24 +22,39 @@
 ## WiFi設定方法
 
 ### 簡単設定（推奨）
-`src/simple_wifi_config.h` ファイルを編集してください：
 
-```cpp
-const WiFiCredentials wifi_networks[] = {
-  {"あなたのWiFi_SSID", "あなたのパスワード", 1},
-  {"モバイルホットスポット", "モバイルパスワード", 2}, 
-  {"ゲストネットワーク", "ゲストパスワード", 3},
-  {nullptr, nullptr, 0}  // この行は削除しないでください
-};
+**重要**: このリポジトリは機密情報を含まない安全な構成になっています。
 
-// ランダムセリフ（オプション）
-const char* random_speeches[] = {
-  "こんにちは！",
-  "今日もいい天気ですね",
-  "お疲れ様です",
-  nullptr  // 終端マーカー
-};
-```
+1. **設定ファイルを作成**:
+   ```bash
+   cp src/simple_wifi_config.h.example src/simple_wifi_config.h
+   ```
+
+2. **WiFi認証情報を編集**:
+   `src/simple_wifi_config.h` ファイルを開いて、以下を変更してください：
+
+   ```cpp
+   const WiFiCredentials wifi_networks[] = {
+     {"あなたのWiFi_SSID", "あなたのパスワード", 1},
+     {"モバイルホットスポット", "モバイルパスワード", 2}, 
+     {"ゲストネットワーク", "ゲストパスワード", 3},
+     {nullptr, nullptr, 0}  // この行は削除しないでください
+   };
+   ```
+
+3. **ランダムセリフ設定（オプション）**:
+   同じファイル内でセリフをカスタマイズできます：
+
+   ```cpp
+   const char* random_speeches[] = {
+     "こんにちは！",
+     "今日もいい天気ですね", 
+     "お疲れ様です",
+     nullptr  // 終端マーカー
+   };
+   ```
+
+⚠️ **注意**: `simple_wifi_config.h` ファイルは `.gitignore` に含まれているため、Git履歴に含まれません。
 
 ### 高度な設定
 将来的に`data/yaml/SC_BasicConfig.yaml`での設定にも対応予定です。
