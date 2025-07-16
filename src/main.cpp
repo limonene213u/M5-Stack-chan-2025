@@ -110,9 +110,9 @@ void setup() {
     cps[1]->set(COLOR_PRIMARY, TFT_YELLOW);
     cps[1]->set(COLOR_BACKGROUND, TFT_BLUE);
     
-    // 2: 緑系
+    // 2: 緑系（縦線問題を避けるため暗い緑を使用）
     cps[2]->set(COLOR_PRIMARY, TFT_WHITE);
-    cps[2]->set(COLOR_BACKGROUND, TFT_GREEN);
+    cps[2]->set(COLOR_BACKGROUND, 0x00A000); // TFT_GREENより暗い緑
     
     // 3: 赤系
     cps[3]->set(COLOR_PRIMARY, TFT_WHITE);
@@ -131,6 +131,12 @@ void setup() {
     Serial.println("Avatar.init()実行開始");
     avatar.init();
     Serial.println("Avatar.init()実行完了");
+    
+    // 初期化後に画面を確実にクリア（緑縦線対策）
+    M5.Display.fillScreen(TFT_BLACK);
+    delay(50);
+    M5.Display.clear();
+    delay(50);
     
     Serial.println("ColorPalette適用開始");
     avatar.setColorPalette(*cps[current_color_index]);
@@ -220,8 +226,11 @@ void setup() {
     use_ble_mode = false;
   }
   
-  // Avatar画面に戻す
+  // Avatar画面に戻す - 画面を完全にクリア
   M5.Display.fillScreen(TFT_BLACK);
+  delay(50);
+  M5.Display.clear();
+  delay(100);
   
   if (use_ble_mode) {
     // BLEモードで起動
@@ -1115,10 +1124,16 @@ void showConnectionModeMenu() {
   }
   
   // タイムアウト - 元の画面に戻る
-  M5.Display.fillScreen(TFT_BLACK);
   if (avatar_initialized) {
-    avatar.start(); // Avatarを再開
-    delay(100); // 再開を確実にするため少し待機
+    // 画面を完全にクリアしてからAvatarを再開
+    M5.Display.fillScreen(TFT_BLACK);
+    delay(50);
+    M5.Display.clear();
+    delay(50);
+    
+    // Avatarを再開
+    avatar.start();
+    delay(150); // 再開を確実にするため待機
     avatar.setSpeechText(current_message.c_str());
   }
 }
@@ -1195,10 +1210,16 @@ void showConnectionStatus() {
   }
   
   // 元の画面に戻る
-  M5.Display.fillScreen(TFT_BLACK);
   if (avatar_initialized) {
-    avatar.start(); // Avatarを再開
-    delay(100); // 再開を確実にするため少し待機
+    // 画面を完全にクリアしてからAvatarを再開
+    M5.Display.fillScreen(TFT_BLACK);
+    delay(50);
+    M5.Display.clear();
+    delay(50);
+    
+    // Avatarを再開
+    avatar.start();
+    delay(150); // 再開を確実にするため待機
     avatar.setSpeechText(current_message.c_str());
   }
 }
@@ -1283,10 +1304,16 @@ void handleModeSelection(int mode) {
   
   // 元の画面に戻る
   delay(1000);
-  M5.Display.fillScreen(TFT_BLACK);
   if (avatar_initialized) {
-    avatar.start(); // Avatarを再開
-    delay(100); // 再開を確実にするため少し待機
+    // 画面を完全にクリアしてからAvatarを再開
+    M5.Display.fillScreen(TFT_BLACK);
+    delay(50);
+    M5.Display.clear();
+    delay(50);
+    
+    // Avatarを再開
+    avatar.start();
+    delay(150); // 再開を確実にするため待機
     avatar.setSpeechText(current_message.c_str());
   }
 }
